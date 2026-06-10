@@ -117,6 +117,8 @@ export interface DefenderConfig {
   unit: Unit
   statlineId: string
   models: number
+  /** A character attached to the unit (allocated to last) */
+  attachedUnit?: Unit
   overrides?: DefenderOverrides
 }
 
@@ -133,7 +135,7 @@ export function toDefenderInput(config: DefenderConfig): DefenderInput {
     config.unit.statlines.find((s) => s.id === config.statlineId) ??
     config.unit.statlines[0]
   const overrides = config.overrides ?? {}
-  return {
+  const input: DefenderInput = {
     toughness: stat.T,
     save: stat.SV,
     wounds: Math.max(1, stat.W),
@@ -143,6 +145,25 @@ export function toDefenderInput(config: DefenderConfig): DefenderInput {
     damageReduction: overrides.damageReduction ? 1 : 0,
     keywords: config.unit.keywords,
   }
+  const char = config.attachedUnit
+  const charStat = char?.statlines[0]
+  if (char && charStat) {
+    input.attached = {
+      toughness: charStat.T,
+      save: charStat.SV,
+      wounds: Math.max(1, charStat.W),
+      invuln: override(overrides.invuln, char.invuln),
+      feelNoPain: override(overrides.feelNoPain, char.feelNoPain),
+    }
+    // Anti-X matches against the combined unit's keywords
+    input.keywords = [...new Set([...config.unit.keywords, ...char.keywords])]
+  }
+  return input
+}
+
+/** Units that can be attached as leaders (10e Character keyword) */
+export function characterUnits(units: Unit[]): Unit[] {
+  return units.filter((u) => u.keywords.includes('Character'))
 }
 
 export function runSimulation(

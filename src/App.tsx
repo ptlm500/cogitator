@@ -36,6 +36,7 @@ function App() {
     initial.attackerFaction,
   )
   const [attackerUnitId, setAttackerUnitId] = useState(initial.attackerUnitId)
+  const [attackerCharId, setAttackerCharId] = useState(initial.attackerCharId)
   const [mode, setMode] = useState<AttackMode>(initial.mode ?? 'shooting')
   const [counts, setCounts] = useState<Record<string, number>>({})
   // BS/WS characteristic overrides by row key (only deltas are stored)
@@ -45,6 +46,7 @@ function App() {
     initial.defenderFaction,
   )
   const [defenderUnitId, setDefenderUnitId] = useState(initial.defenderUnitId)
+  const [defenderCharId, setDefenderCharId] = useState(initial.defenderCharId)
   const [statlineId, setStatlineId] = useState<string>()
   const [models, setModels] = useState(1)
 
@@ -56,12 +58,28 @@ function App() {
   const attackerData = useFaction(edition, attackerFaction)
   const defenderData = useFaction(edition, defenderFaction)
   const attacker = attackerData.data?.units.find((u) => u.id === attackerUnitId)
-  const defender = defenderData.data?.units.find((u) => u.id === defenderUnitId)
-
-  const rows = useMemo(
-    () => (attacker ? profileRows(attacker, mode) : []),
-    [attacker, mode],
+  const attackerChar = attackerData.data?.units.find(
+    (u) => u.id === attackerCharId,
   )
+  const defender = defenderData.data?.units.find((u) => u.id === defenderUnitId)
+  const defenderChar = defenderData.data?.units.find(
+    (u) => u.id === defenderCharId,
+  )
+
+  const rows = useMemo(() => {
+    if (!attacker) return []
+    const unitRows = profileRows(attacker, mode)
+    if (!attackerChar) return unitRows
+    // the attached character attacks alongside the unit; its row keys are
+    // namespaced so shared weapon entries don't collide with the unit's
+    return [
+      ...unitRows,
+      ...profileRows(attackerChar, mode).map((r) => ({
+        ...r,
+        key: `c.${r.key}`,
+      })),
+    ]
+  }, [attacker, attackerChar, mode])
   // reset weapon counts to the new defaults whenever the rows change
   const [countsFor, setCountsFor] = useState<typeof rows>()
   if (countsFor !== rows) {
@@ -102,13 +120,20 @@ function App() {
       rows,
       counts,
       skills,
-      { unit: defender, statlineId: statlineId ?? '', models, overrides },
+      {
+        unit: defender,
+        statlineId: statlineId ?? '',
+        models,
+        attachedUnit: defenderChar,
+        overrides,
+      },
       context,
     )
   }, [
     edition,
     attacker,
     defender,
+    defenderChar,
     rows,
     counts,
     skills,
@@ -130,11 +155,13 @@ function App() {
       edition,
       attackerFaction,
       attackerUnitId,
+      attackerCharId,
       mode,
       counts: changed,
       skills,
       defenderFaction,
       defenderUnitId,
+      defenderCharId,
       statlineId,
       models: defender ? models : undefined,
       context,
@@ -144,12 +171,14 @@ function App() {
     edition,
     attackerFaction,
     attackerUnitId,
+    attackerCharId,
     mode,
     rows,
     counts,
     skills,
     defenderFaction,
     defenderUnitId,
+    defenderCharId,
     statlineId,
     models,
     defender,
@@ -215,6 +244,8 @@ function App() {
           edition={edition}
           factionFile={attackerFaction}
           unit={attacker}
+          factionUnits={attackerData.data?.units ?? []}
+          attachedId={attackerCharId}
           mode={mode}
           rows={rows}
           counts={counts}
@@ -222,8 +253,10 @@ function App() {
           onFactionChange={(f) => {
             setAttackerFaction(f)
             setAttackerUnitId(undefined)
+            setAttackerCharId(undefined)
           }}
           onUnitChange={setAttackerUnitId}
+          onAttachedChange={setAttackerCharId}
           onModeChange={setMode}
           onCountChange={(key, count) =>
             setCounts((c) => ({ ...c, [key]: count }))
@@ -241,13 +274,17 @@ function App() {
           edition={edition}
           factionFile={defenderFaction}
           unit={defender}
+          factionUnits={defenderData.data?.units ?? []}
+          attached={defenderChar}
           statlineId={statlineId}
           models={models}
           onFactionChange={(f) => {
             setDefenderFaction(f)
             setDefenderUnitId(undefined)
+            setDefenderCharId(undefined)
           }}
           onUnitChange={setDefenderUnitId}
+          onAttachedChange={setDefenderCharId}
           onStatlineChange={setStatlineId}
           onModelsChange={setModels}
         />
@@ -260,7 +297,11 @@ function App() {
         onOverridesChange={setOverrides}
       />
 
-      <ResultsPanel result={result} defenderName={defender?.name} />
+      <ResultsPanel
+        result={result}
+        defenderName={defender?.name}
+        attachedName={defenderChar?.name}
+      />
 
       <footer className="mt-auto pt-4 text-xs text-[var(--text-muted)]">
         Data from{' '}

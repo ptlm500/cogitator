@@ -72,6 +72,29 @@ if (Number(dmgAfter) >= Number(dmgBefore)) {
 }
 console.log(`override works: damage ${dmgBefore} -> ${dmgAfter}`)
 
+// attaching a character to the attacker adds its weapons
+const attacksBefore = await stat(page, 'Attacks')
+await page.getByLabel('Attached character').nth(0).click()
+await page.getByRole('option', { name: 'Apothecary', exact: true }).click()
+await page.waitForTimeout(200)
+const attacksAfter = await stat(page, 'Attacks')
+if (Number(attacksAfter) <= Number(attacksBefore)) {
+  throw new Error(
+    `attacker character added no attacks: ${attacksBefore} -> ${attacksAfter}`,
+  )
+}
+console.log(
+  `attacker character works: attacks ${attacksBefore} -> ${attacksAfter}`,
+)
+
+// attaching a character to the defender reports its survival
+await page.getByLabel('Attached character').nth(1).click()
+await page.getByRole('option', { name: 'Typhus', exact: true }).click()
+await page
+  .getByText('Typhus slain', { exact: false })
+  .waitFor({ timeout: 3000 })
+console.log('defender character works')
+
 // worsening a profile's BS stacks with the +1 hit modifier
 const hitsBeforeSkill = await stat(page, 'Hits')
 await page.getByLabel('Increase Bolt Rifle skill').click()

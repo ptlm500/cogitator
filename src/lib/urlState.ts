@@ -7,6 +7,7 @@ export interface SharedState {
   edition?: string
   attackerFaction?: string
   attackerUnitId?: string
+  attackerCharId?: string
   mode?: AttackMode
   /** Weapon counts that differ from the default loadout */
   counts?: Record<string, number>
@@ -14,6 +15,7 @@ export interface SharedState {
   skills?: Record<string, number>
   defenderFaction?: string
   defenderUnitId?: string
+  defenderCharId?: string
   statlineId?: string
   models?: number
   context?: AttackContext
@@ -43,6 +45,7 @@ export function serializeState(state: SharedState): string {
   if (state.edition && state.edition !== '10e') set('ed', state.edition)
   set('af', state.attackerFaction)
   set('au', state.attackerUnitId)
+  set('ac', state.attackerCharId)
   if (state.mode === 'melee') set('m', 'melee')
   const counts = Object.entries(state.counts ?? {})
   if (counts.length > 0) {
@@ -54,6 +57,7 @@ export function serializeState(state: SharedState): string {
   }
   set('df', state.defenderFaction)
   set('du', state.defenderUnitId)
+  set('dc', state.defenderCharId)
   set('ds', state.statlineId)
   set('dm', state.models)
 
@@ -84,6 +88,7 @@ export function parseState(hash: string): SharedState {
   state.edition = get('ed')
   state.attackerFaction = get('af')
   state.attackerUnitId = get('au')
+  state.attackerCharId = get('ac')
   if (p.get('m') === 'melee') state.mode = 'melee'
   const parseKeyedNumbers = (raw: string | null) => {
     if (!raw) return undefined
@@ -100,6 +105,7 @@ export function parseState(hash: string): SharedState {
   state.skills = parseKeyedNumbers(p.get('sk'))
   state.defenderFaction = get('df')
   state.defenderUnitId = get('du')
+  state.defenderCharId = get('dc')
   state.statlineId = get('ds')
   const dm = p.get('dm')
   if (dm !== null && Number.isFinite(Number(dm))) state.models = Number(dm)

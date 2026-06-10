@@ -203,6 +203,43 @@ describe('toDefenderInput', () => {
     })
   })
 
+  it('maps an attached character with merged keywords', () => {
+    const char: Unit = {
+      ...unit,
+      id: 'char1',
+      name: 'Test Hero',
+      keywords: ['Character', 'Hero'],
+      invuln: 4,
+      feelNoPain: 5,
+      statlines: [
+        {
+          id: 'cs1',
+          name: 'Hero',
+          M: '6"',
+          T: 5,
+          SV: 2,
+          W: 5,
+          LD: '5+',
+          OC: 1,
+        },
+      ],
+    }
+    const input = toDefenderInput({
+      unit,
+      statlineId: 's1',
+      models: 5,
+      attachedUnit: char,
+    })
+    expect(input.attached).toEqual({
+      toughness: 5,
+      save: 2,
+      wounds: 5,
+      invuln: 4,
+      feelNoPain: 5,
+    })
+    expect(input.keywords).toEqual(['Infantry', 'Character', 'Hero'])
+  })
+
   it('applies manual overrides over data values', () => {
     expect(
       toDefenderInput({

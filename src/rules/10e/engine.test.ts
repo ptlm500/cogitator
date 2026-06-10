@@ -82,35 +82,32 @@ describe('failSaveProb', () => {
 
   it('applies AP to the armour save', () => {
     // 3+ save, AP-1 -> 4+: fails on 1-3
-    expect(failSaveProb(defender({}), 1, opts)).toBeCloseTo(1 / 2, 12)
+    expect(failSaveProb(3, undefined, 1, opts)).toBeCloseTo(1 / 2, 12)
   })
 
   it('uses invuln when better', () => {
-    expect(failSaveProb(defender({ invuln: 4 }), 3, opts)).toBeCloseTo(
-      1 / 2,
-      12,
-    )
+    expect(failSaveProb(3, 4, 3, opts)).toBeCloseTo(1 / 2, 12)
   })
 
   it('no save when AP exceeds everything', () => {
-    expect(failSaveProb(defender({ save: 6 }), 2, opts)).toBe(1)
+    expect(failSaveProb(6, undefined, 2, opts)).toBe(1)
   })
 
   it('cover improves armour by 1 against ranged', () => {
     expect(
-      failSaveProb(defender({ save: 4 }), 1, { ...opts, inCover: true }),
+      failSaveProb(4, undefined, 1, { ...opts, inCover: true }),
     ).toBeCloseTo(1 / 2, 12)
   })
 
   it('3+ or better gets no cover benefit against AP 0', () => {
     expect(
-      failSaveProb(defender({ save: 3 }), 0, { ...opts, inCover: true }),
+      failSaveProb(3, undefined, 0, { ...opts, inCover: true }),
     ).toBeCloseTo(1 / 3, 12)
   })
 
   it('ignores cover negates the bonus', () => {
     expect(
-      failSaveProb(defender({ save: 4 }), 1, {
+      failSaveProb(4, undefined, 1, {
         ...opts,
         inCover: true,
         ignoresCover: true,
@@ -119,10 +116,7 @@ describe('failSaveProb', () => {
   })
 
   it('a save of 2+ is the floor', () => {
-    expect(failSaveProb(defender({ save: 2, invuln: 4 }), 0, opts)).toBeCloseTo(
-      1 / 6,
-      12,
-    )
+    expect(failSaveProb(2, 4, 0, opts)).toBeCloseTo(1 / 6, 12)
   })
 })
 
@@ -384,6 +378,85 @@ describe('resolveAttacks: classic mathhammer cases', () => {
       defender({ save: 6, wounds: 10, models: 1, damageReduction: 1 }),
     )
     expect(r.expected.damage).toBeCloseTo(5 / 6, 6)
+  })
+})
+
+describe('attached characters', () => {
+  it('allocates to bodyguards before the character, with its own save', () => {
+    // 2 auto-hits, S8 v T4 (2+, p=5/6 each); the lone bodyguard has no save
+    // (Sv6 vs AP-2), the character saves on 4+ (2+ with AP-2)
+    const r = resolveAttacks(
+      [
+        {
+          profile: ranged({
+            attacks: '2',
+            strength: 8,
+            ap: 2,
+            keywords: ['Torrent'],
+          }),
+          count: 1,
+        },
+      ],
+      defender({
+        save: 6,
+        wounds: 1,
+        models: 1,
+        attached: { toughness: 4, save: 2, wounds: 1 },
+      }),
+    )
+    // bodyguard dies to any wound
+    expect(r.slain[1]).toBeCloseTo(1 - 1 / 36, 12)
+    // character dies only if both attacks wound and its 4+ save fails
+    expect(r.attachedSlain).toBeCloseTo((25 / 36) * (1 / 2), 12)
+    expect(r.unitKilled).toBeCloseTo(r.attachedSlain!, 12)
+  })
+
+  it("applies the character's own feel no pain", () => {
+    // same shape, but the character has no save and FNP 4+ instead
+    const r = resolveAttacks(
+      [
+        {
+          profile: ranged({
+            attacks: '2',
+            strength: 8,
+            ap: 2,
+            keywords: ['Torrent'],
+          }),
+          count: 1,
+        },
+      ],
+      defender({
+        save: 6,
+        wounds: 1,
+        models: 1,
+        attached: { toughness: 4, save: 6, wounds: 1, feelNoPain: 4 },
+      }),
+    )
+    expect(r.attachedSlain).toBeCloseTo((25 / 36) * (1 / 2), 12)
+  })
+
+  it('wound rolls use majority toughness, highest on a tie', () => {
+    const char = { toughness: 8, save: 2, wounds: 5 }
+    // 1 bodyguard + 1 character: tie -> T8, S4 wounds on 6s
+    const tied = resolveAttacks(
+      [{ profile: ranged({ attacks: '6', keywords: ['Torrent'] }), count: 1 }],
+      defender({ models: 1, wounds: 5, attached: char }),
+    )
+    expect(tied.expected.wounds).toBeCloseTo(1, 12)
+    // 2 bodyguards: majority is T4, S4 wounds on 4+
+    const majority = resolveAttacks(
+      [{ profile: ranged({ attacks: '6', keywords: ['Torrent'] }), count: 1 }],
+      defender({ models: 2, wounds: 5, attached: char }),
+    )
+    expect(majority.expected.wounds).toBeCloseTo(3, 12)
+  })
+
+  it('no attachedSlain reported without a character', () => {
+    const r = resolveAttacks(
+      [{ profile: ranged({ attacks: '6' }), count: 1 }],
+      defender({}),
+    )
+    expect(r.attachedSlain).toBeUndefined()
   })
 })
 

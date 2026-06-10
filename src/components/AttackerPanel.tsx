@@ -9,12 +9,16 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs/tabs'
 import type { Unit } from '@/data/types.ts'
 import type { AttackMode, ProfileRow } from '@/lib/simulation.ts'
 import { NumberStepper } from './NumberStepper.tsx'
+import { CharacterSelect } from './CharacterSelect.tsx'
 import { UnitSelect } from './UnitSelect.tsx'
 
 interface AttackerPanelProps {
   edition: string
   factionFile?: string
   unit?: Unit
+  /** All units of the selected faction (for the character picker) */
+  factionUnits: Unit[]
+  attachedId?: string
   mode: AttackMode
   rows: ProfileRow[]
   counts: Record<string, number>
@@ -22,6 +26,7 @@ interface AttackerPanelProps {
   skills: Record<string, number>
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
+  onAttachedChange: (unitId: string | undefined) => void
   onModeChange: (mode: AttackMode) => void
   onCountChange: (key: string, count: number) => void
   onSkillChange: (key: string, skill: number | undefined) => void
@@ -41,12 +46,15 @@ export function AttackerPanel({
   edition,
   factionFile,
   unit,
+  factionUnits,
+  attachedId,
   mode,
   rows,
   counts,
   skills,
   onFactionChange,
   onUnitChange,
+  onAttachedChange,
   onModeChange,
   onCountChange,
   onSkillChange,
@@ -66,6 +74,11 @@ export function AttackerPanel({
         />
         {unit && (
           <>
+            <CharacterSelect
+              units={factionUnits.filter((u) => u.id !== unit.id)}
+              value={attachedId}
+              onChange={onAttachedChange}
+            />
             <Tabs
               value={mode}
               onValueChange={(v) => onModeChange(v as AttackMode)}

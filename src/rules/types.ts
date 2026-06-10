@@ -23,6 +23,16 @@ export interface WeaponInput {
   count: number
 }
 
+/** A leader attached to the defending unit. Attacks are allocated to the
+ * bodyguard models first; the character only takes hits once they are dead. */
+export interface AttachedCharacter {
+  toughness: number
+  save: number
+  invuln?: number
+  wounds: number
+  feelNoPain?: number
+}
+
 export interface DefenderInput {
   toughness: number
   /** Armour save (2-6); 7+ = no save */
@@ -35,6 +45,7 @@ export interface DefenderInput {
   damageReduction?: number
   /** Unit keywords, used by Anti-X weapons */
   keywords?: string[]
+  attached?: AttachedCharacter
 }
 
 export type RerollMode = 'none' | 'ones' | 'fails'
@@ -70,12 +81,14 @@ export interface AttackResult {
     damage: number
     modelsSlain: number
   }
-  /** P(k models slain) by index */
+  /** P(k bodyguard models slain) by index */
   slain: number[]
   /** P(total effective damage = d) by index */
   damage: number[]
-  /** Probability the whole unit is destroyed */
+  /** Probability the whole unit is destroyed (including any attached character) */
   unitKilled: number
+  /** Probability the attached character is slain (only when one is attached) */
+  attachedSlain?: number
 }
 
 export interface RulesEngine {

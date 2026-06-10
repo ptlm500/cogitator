@@ -6,11 +6,13 @@ describe('urlState', () => {
     const state: SharedState = {
       attackerFaction: 'imperium-adeptus-astartes-space-marines.json',
       attackerUnitId: 'abc-123',
+      attackerCharId: 'char-1',
       mode: 'melee',
       counts: { 'w1:0': 5, 'w2:1': 0 },
       skills: { 'w1:0': 2 },
       defenderFaction: 'chaos-death-guard.json',
       defenderUnitId: 'def-456',
+      defenderCharId: 'char-2',
       statlineId: 'stat-1',
       models: 7,
       context: {

@@ -14,16 +14,21 @@ import {
 } from '@/components/ui/select/select'
 import type { Unit } from '@/data/types.ts'
 import { NumberStepper } from './NumberStepper.tsx'
+import { CharacterSelect } from './CharacterSelect.tsx'
 import { UnitSelect } from './UnitSelect.tsx'
 
 interface DefenderPanelProps {
   edition: string
   factionFile?: string
   unit?: Unit
+  /** All units of the selected faction (for the character picker) */
+  factionUnits: Unit[]
+  attached?: Unit
   statlineId?: string
   models: number
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
+  onAttachedChange: (unitId: string | undefined) => void
   onStatlineChange: (id: string) => void
   onModelsChange: (models: number) => void
 }
@@ -32,10 +37,13 @@ export function DefenderPanel({
   edition,
   factionFile,
   unit,
+  factionUnits,
+  attached,
   statlineId,
   models,
   onFactionChange,
   onUnitChange,
+  onAttachedChange,
   onStatlineChange,
   onModelsChange,
 }: DefenderPanelProps) {
@@ -62,6 +70,11 @@ export function DefenderPanel({
         />
         {unit && stat && (
           <>
+            <CharacterSelect
+              units={factionUnits.filter((u) => u.id !== unit.id)}
+              value={attached?.id}
+              onChange={onAttachedChange}
+            />
             {unit.statlines.length > 1 && (
               <Select value={stat.id} onValueChange={onStatlineChange}>
                 <SelectTrigger aria-label="Statline">
@@ -98,6 +111,15 @@ export function DefenderPanel({
                 </div>
               ))}
             </dl>
+            {attached && attached.statlines[0] && (
+              <p className="text-xs text-[var(--text-muted)]">
+                + {attached.name}: T{attached.statlines[0].T} · SV
+                {attached.statlines[0].SV}+ · W{attached.statlines[0].W}
+                {attached.invuln ? ` · ${attached.invuln}++` : ''}
+                {attached.feelNoPain ? ` · FNP ${attached.feelNoPain}+` : ''}
+                <span className="ml-1">(takes hits last)</span>
+              </p>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--text-muted)]">
                 Models in unit
