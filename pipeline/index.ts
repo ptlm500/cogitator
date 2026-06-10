@@ -3,7 +3,7 @@ import path from 'node:path'
 import { BsIndex, extractFaction } from './extract.ts'
 import { fetchBsData, updatePin } from './fetch.ts'
 import { parseBsXml, type BSDocument } from './parse.ts'
-import type { DataIndex, FactionRef } from './types.ts'
+import type { DataIndex, FactionRef } from '../src/data/types.ts'
 
 const EDITION = '10e'
 const OUT_DIR = path.join(import.meta.dirname, '..', 'public', 'data', EDITION)

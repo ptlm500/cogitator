@@ -9,7 +9,7 @@ import type {
   Weapon,
   WeaponProfile,
   WeaponRef,
-} from './types.ts'
+} from '../src/data/types.ts'
 
 // --- helpers over the parsed XML shape -------------------------------------
 

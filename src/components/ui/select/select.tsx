@@ -55,6 +55,8 @@ const SelectContent = React.forwardRef<
       ref={ref}
       className={cn(
         'relative z-50 min-w-[8rem] overflow-hidden',
+        // long lists (factions, units) must scroll rather than overflow
+        'max-h-[var(--radix-select-content-available-height)]',
         'border border-[var(--border)] bg-[var(--surface-raised)]',
         'rounded-none',
         'shadow-[0_8px_24px_#07050F99]',
@@ -65,7 +67,9 @@ const SelectContent = React.forwardRef<
       sideOffset={4}
       {...props}
     >
-      <SelectPrimitive.Viewport style={{ padding: '4px 0' }}>
+      <SelectPrimitive.Viewport
+        style={{ padding: '4px 0', maxHeight: 'inherit', overflowY: 'auto' }}
+      >
         {children}
       </SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
