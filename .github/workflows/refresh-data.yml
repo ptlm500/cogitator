@@ -1,0 +1,56 @@
+name: Refresh BSData
+
+on:
+  schedule:
+    # weekly, Monday 06:17 UTC (BSData updates frequently; weekly is plenty)
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jdx/mise-action@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Re-pin to BSData HEAD and regenerate data
+        run: pnpm data:update
+
+      - name: Run tests against the refreshed data
+        run: pnpm test
+
+      - name: Commit and push if the data changed
+        id: commit
+        run: |
+          if git diff --quiet; then
+            echo "No data changes."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pipeline/bsdata-pin.json public/data
+          SHA=$(node -p "JSON.parse(require('fs').readFileSync('pipeline/bsdata-pin.json','utf8')).editions['10e'].sha.slice(0,7)")
+          git commit -m "Refresh BSData to $SHA"
+          git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # pushes made with GITHUB_TOKEN don't trigger on:push workflows,
+      # so kick the Pages deploy explicitly
+      - name: Trigger deploy
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main

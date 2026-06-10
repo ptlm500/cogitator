@@ -3,6 +3,8 @@ import type { AttackMode, DefenderOverrides } from './simulation.ts'
 
 /** Everything needed to reconstruct the calculator's state from a URL */
 export interface SharedState {
+  /** Omitted from the URL for the default edition (10e) */
+  edition?: string
   attackerFaction?: string
   attackerUnitId?: string
   mode?: AttackMode
@@ -36,6 +38,7 @@ export function serializeState(state: SharedState): string {
   const set = (key: string, value: string | number | undefined) => {
     if (value !== undefined && value !== '') p.set(key, String(value))
   }
+  if (state.edition && state.edition !== '10e') set('ed', state.edition)
   set('af', state.attackerFaction)
   set('au', state.attackerUnitId)
   if (state.mode === 'melee') set('m', 'melee')
@@ -72,6 +75,7 @@ export function parseState(hash: string): SharedState {
   const state: SharedState = {}
   const get = (key: string) => p.get(key) ?? undefined
 
+  state.edition = get('ed')
   state.attackerFaction = get('af')
   state.attackerUnitId = get('au')
   if (p.get('m') === 'melee') state.mode = 'melee'

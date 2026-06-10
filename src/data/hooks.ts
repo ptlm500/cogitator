@@ -1,10 +1,24 @@
 import { useEffect, useState } from 'react'
-import { loadFaction, loadIndex } from './loader.ts'
-import type { DataIndex, FactionFile } from './types.ts'
+import { loadEditions, loadFaction, loadIndex } from './loader.ts'
+import type { DataIndex, EditionRef, FactionFile } from './types.ts'
 
 interface Loadable<T> {
   data?: T
   error?: string
+}
+
+export function useEditions(): Loadable<EditionRef[]> {
+  const [state, setState] = useState<Loadable<EditionRef[]>>({})
+  useEffect(() => {
+    let live = true
+    loadEditions()
+      .then((data) => live && setState({ data }))
+      .catch((e: Error) => live && setState({ error: e.message }))
+    return () => {
+      live = false
+    }
+  }, [])
+  return state
 }
 
 export function useDataIndex(edition: string): Loadable<DataIndex> {

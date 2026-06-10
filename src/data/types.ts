@@ -1,6 +1,12 @@
 // Output schema for the generated faction data files.
 // Consumed by the app from public/data/<edition>/.
 
+/** One entry in public/data/editions.json */
+export interface EditionRef {
+  edition: string
+  label: string
+}
+
 export interface DataIndex {
   schema: 1
   edition: string

@@ -1,4 +1,4 @@
-import type { DataIndex, FactionFile } from './types.ts'
+import type { DataIndex, EditionRef, FactionFile } from './types.ts'
 
 const dataUrl = (edition: string, file: string) =>
   `${import.meta.env.BASE_URL}data/${edition}/${file}`
@@ -10,6 +10,15 @@ async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`)
   return res.json() as Promise<T>
+}
+
+let editionsCache: Promise<EditionRef[]> | undefined
+
+export function loadEditions(): Promise<EditionRef[]> {
+  editionsCache ??= fetchJson<EditionRef[]>(
+    `${import.meta.env.BASE_URL}data/editions.json`,
+  )
+  return editionsCache
 }
 
 export function loadIndex(edition: string): Promise<DataIndex> {

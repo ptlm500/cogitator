@@ -227,7 +227,21 @@ describe('runSimulation', () => {
       {},
     )
     // 9 rifles (18 shots) + 1 pistol (1 shot)
-    expect(result.expected.attacks).toBeCloseTo(19, 12)
-    expect(result.expected.modelsSlain).toBeGreaterThan(0)
+    expect(result!.expected.attacks).toBeCloseTo(19, 12)
+    expect(result!.expected.modelsSlain).toBeGreaterThan(0)
+  })
+
+  it('returns undefined for an edition without an engine', () => {
+    const rows = profileRows(unit, 'shooting')
+    const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
+    expect(
+      runSimulation(
+        '11e',
+        rows,
+        counts,
+        { unit, statlineId: 's1', models: 5 },
+        {},
+      ),
+    ).toBeUndefined()
   })
 })

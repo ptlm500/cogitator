@@ -151,13 +151,11 @@ export function runSimulation(
   counts: Record<string, number>,
   defender: DefenderConfig,
   context: AttackContext,
-): AttackResult {
+): AttackResult | undefined {
+  const engine = engines[edition]
+  if (!engine) return undefined
   const weapons: WeaponInput[] = rows
     .map((row) => ({ profile: row.profile, count: counts[row.key] ?? 0 }))
     .filter((w) => w.count > 0)
-  return engines[edition].resolveAttacks(
-    weapons,
-    toDefenderInput(defender),
-    context,
-  )
+  return engine.resolveAttacks(weapons, toDefenderInput(defender), context)
 }

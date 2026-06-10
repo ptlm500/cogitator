@@ -5,8 +5,9 @@ import { AttackerPanel } from '@/components/AttackerPanel.tsx'
 import { DefenderPanel } from '@/components/DefenderPanel.tsx'
 import { ModifiersPanel } from '@/components/ModifiersPanel.tsx'
 import { ResultsPanel } from '@/components/ResultsPanel.tsx'
-import { useFaction } from '@/data/hooks.ts'
+import { useEditions, useFaction } from '@/data/hooks.ts'
 import type { Unit } from '@/data/types.ts'
+import { SegmentedControl } from '@/components/SegmentedControl.tsx'
 import {
   defaultUnitSize,
   profileRows,
@@ -17,10 +18,12 @@ import {
 import { parseState, serializeState } from '@/lib/urlState.ts'
 import type { AttackContext } from '@/rules/types.ts'
 
-const EDITION = '10e'
+const DEFAULT_EDITION = '10e'
 
 function App() {
   const [initial] = useState(() => parseState(window.location.hash))
+  const editions = useEditions()
+  const [edition, setEdition] = useState(initial.edition ?? DEFAULT_EDITION)
   // URL-provided values consumed once, when their unit's data first loads
   const [pending, setPending] = useState({
     counts: initial.counts,
@@ -47,8 +50,8 @@ function App() {
     initial.overrides ?? {},
   )
 
-  const attackerData = useFaction(EDITION, attackerFaction)
-  const defenderData = useFaction(EDITION, defenderFaction)
+  const attackerData = useFaction(edition, attackerFaction)
+  const defenderData = useFaction(edition, defenderFaction)
   const attacker = attackerData.data?.units.find((u) => u.id === attackerUnitId)
   const defender = defenderData.data?.units.find((u) => u.id === defenderUnitId)
 
@@ -83,13 +86,23 @@ function App() {
   const result = useMemo(() => {
     if (!attacker || !defender || rows.length === 0) return undefined
     return runSimulation(
-      EDITION,
+      edition,
       rows,
       counts,
       { unit: defender, statlineId: statlineId ?? '', models, overrides },
       context,
     )
-  }, [attacker, defender, rows, counts, statlineId, models, overrides, context])
+  }, [
+    edition,
+    attacker,
+    defender,
+    rows,
+    counts,
+    statlineId,
+    models,
+    overrides,
+    context,
+  ])
 
   // keep the URL in sync so any state is shareable
   const hash = useMemo(() => {
@@ -100,6 +113,7 @@ function App() {
       Object.entries(counts).filter(([k, v]) => defaults[k] !== v),
     )
     return serializeState({
+      edition,
       attackerFaction,
       attackerUnitId,
       mode,
@@ -112,6 +126,7 @@ function App() {
       overrides,
     })
   }, [
+    edition,
     attackerFaction,
     attackerUnitId,
     mode,
@@ -154,13 +169,34 @@ function App() {
           <Button size="SM" onClick={copyLink}>
             {copied ? 'Copied' : 'Copy link'}
           </Button>
-          <Badge>10th Edition</Badge>
+          {(editions.data?.length ?? 0) > 1 ? (
+            <SegmentedControl
+              label="Edition"
+              options={editions.data!.map((e) => ({
+                value: e.edition,
+                label: e.label,
+              }))}
+              value={edition}
+              onChange={(next) => {
+                setEdition(next)
+                setAttackerFaction(undefined)
+                setAttackerUnitId(undefined)
+                setDefenderFaction(undefined)
+                setDefenderUnitId(undefined)
+              }}
+            />
+          ) : (
+            <Badge>
+              {editions.data?.find((e) => e.edition === edition)?.label ??
+                '10th Edition'}
+            </Badge>
+          )}
         </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <AttackerPanel
-          edition={EDITION}
+          edition={edition}
           factionFile={attackerFaction}
           unit={attacker}
           mode={mode}
@@ -177,7 +213,7 @@ function App() {
           }
         />
         <DefenderPanel
-          edition={EDITION}
+          edition={edition}
           factionFile={defenderFaction}
           unit={defender}
           statlineId={statlineId}

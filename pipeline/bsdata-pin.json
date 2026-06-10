@@ -1,4 +1,9 @@
 {
-  "repo": "BSData/wh40k-10e",
-  "sha": "f4811443fcd2dfdb3c317c1eeba899c2b9174bc9"
+  "editions": {
+    "10e": {
+      "label": "10th Edition",
+      "repo": "BSData/wh40k-10e",
+      "sha": "f4811443fcd2dfdb3c317c1eeba899c2b9174bc9"
+    }
+  }
 }

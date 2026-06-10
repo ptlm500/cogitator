@@ -10,36 +10,48 @@ const PIPELINE_DIR = import.meta.dirname
 const CACHE_DIR = path.join(PIPELINE_DIR, '.cache')
 const PIN_FILE = path.join(PIPELINE_DIR, 'bsdata-pin.json')
 
-interface Pin {
+export interface EditionPin {
+  label: string
   repo: string
   sha: string
 }
 
-export async function readPin(): Promise<Pin> {
-  return JSON.parse(await readFile(PIN_FILE, 'utf8')) as Pin
+interface PinFile {
+  editions: Record<string, EditionPin>
 }
 
-/** Update the pin to the BSData repo's current main HEAD */
-export async function updatePin(): Promise<Pin> {
-  const { repo } = await readPin()
-  const res = await fetch(`https://api.github.com/repos/${repo}/commits/main`, {
-    headers: { accept: 'application/vnd.github+json' },
-  })
-  if (!res.ok) throw new Error(`GitHub API: ${res.status} ${res.statusText}`)
-  const { sha } = (await res.json()) as { sha: string }
-  const pin = { repo, sha }
-  await writeFile(PIN_FILE, JSON.stringify(pin, null, 2) + '\n')
-  return pin
+export async function readPins(): Promise<Record<string, EditionPin>> {
+  const file = JSON.parse(await readFile(PIN_FILE, 'utf8')) as PinFile
+  return file.editions
+}
+
+/** Re-pin every edition to its BSData repo's current main HEAD */
+export async function updatePins(): Promise<Record<string, EditionPin>> {
+  const editions = await readPins()
+  for (const [edition, pin] of Object.entries(editions)) {
+    const res = await fetch(
+      `https://api.github.com/repos/${pin.repo}/commits/main`,
+      { headers: { accept: 'application/vnd.github+json' } },
+    )
+    if (!res.ok) {
+      throw new Error(
+        `GitHub API (${pin.repo}): ${res.status} ${res.statusText}`,
+      )
+    }
+    const { sha } = (await res.json()) as { sha: string }
+    editions[edition] = { ...pin, sha }
+  }
+  await writeFile(PIN_FILE, JSON.stringify({ editions }, null, 2) + '\n')
+  return editions
 }
 
 /**
- * Ensure the pinned BSData snapshot is on disk; returns the directory
- * containing the .gst and .cat files.
+ * Ensure an edition's pinned BSData snapshot is on disk; returns the
+ * directory containing the .gst and .cat files.
  */
-export async function fetchBsData(): Promise<{ dir: string; pin: Pin }> {
-  const pin = await readPin()
+export async function fetchBsData(pin: EditionPin): Promise<string> {
   const dir = path.join(CACHE_DIR, pin.sha)
-  if (existsSync(dir)) return { dir, pin }
+  if (existsSync(dir)) return dir
 
   const url = `https://codeload.github.com/${pin.repo}/tar.gz/${pin.sha}`
   const res = await fetch(url)
@@ -60,5 +72,5 @@ export async function fetchBsData(): Promise<{ dir: string; pin: Pin }> {
   ])
   await rename(extractDir, dir)
   await rm(tarball, { force: true })
-  return { dir, pin }
+  return dir
 }
