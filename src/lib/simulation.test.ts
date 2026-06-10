@@ -223,12 +223,49 @@ describe('runSimulation', () => {
       '10e',
       rows,
       counts,
+      {},
       { unit, statlineId: 's1', models: 5 },
       {},
     )
     // 9 rifles (18 shots) + 1 pistol (1 shot)
     expect(result!.expected.attacks).toBeCloseTo(19, 12)
     expect(result!.expected.modelsSlain).toBeGreaterThan(0)
+  })
+
+  it('applies BS/WS characteristic overrides per profile', () => {
+    const rows = profileRows(unit, 'shooting')
+    const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
+    const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
+    const defender = { unit, statlineId: 's1', models: 5 }
+    const base = runSimulation('10e', rows, counts, {}, defender, {})!
+    // 3+ -> 2+ improves hits on the 18 rifle shots but not the pistol
+    const buffed = runSimulation(
+      '10e',
+      rows,
+      counts,
+      { [rifleKey]: 2 },
+      defender,
+      {},
+    )!
+    expect(base.expected.hits).toBeCloseTo(19 * (4 / 6), 12)
+    expect(buffed.expected.hits).toBeCloseTo(18 * (5 / 6) + 4 / 6, 12)
+  })
+
+  it('skill overrides stack with hit roll modifiers', () => {
+    const rows = profileRows(unit, 'shooting')
+    const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
+    const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
+    const defender = { unit, statlineId: 's1', models: 5 }
+    const result = runSimulation(
+      '10e',
+      rows,
+      counts,
+      { [rifleKey]: 4 },
+      defender,
+      { hitMod: 1 },
+    )!
+    // rifles at 4+ with +1 (3+ effective), pistol at 3+ with +1 (2+ effective)
+    expect(result.expected.hits).toBeCloseTo(18 * (4 / 6) + 5 / 6, 12)
   })
 
   it('returns undefined for an edition without an engine', () => {
@@ -239,6 +276,7 @@ describe('runSimulation', () => {
         '11e',
         rows,
         counts,
+        {},
         { unit, statlineId: 's1', models: 5 },
         {},
       ),

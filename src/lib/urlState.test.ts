@@ -8,6 +8,7 @@ describe('urlState', () => {
       attackerUnitId: 'abc-123',
       mode: 'melee',
       counts: { 'w1:0': 5, 'w2:1': 0 },
+      skills: { 'w1:0': 2 },
       defenderFaction: 'chaos-death-guard.json',
       defenderUnitId: 'def-456',
       statlineId: 'stat-1',

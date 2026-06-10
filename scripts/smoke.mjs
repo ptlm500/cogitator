@@ -72,6 +72,21 @@ if (Number(dmgAfter) >= Number(dmgBefore)) {
 }
 console.log(`override works: damage ${dmgBefore} -> ${dmgAfter}`)
 
+// worsening a profile's BS stacks with the +1 hit modifier
+const hitsBeforeSkill = await stat(page, 'Hits')
+await page.getByLabel('Increase Bolt Rifle skill').click()
+await page.waitForTimeout(200)
+const hitsAfterSkill = await stat(page, 'Hits')
+if (Number(hitsAfterSkill) >= Number(hitsBeforeSkill)) {
+  throw new Error(
+    `BS override did not change hits: ${hitsBeforeSkill} -> ${hitsAfterSkill}`,
+  )
+}
+console.log(
+  `skill override works: hits ${hitsBeforeSkill} -> ${hitsAfterSkill}`,
+)
+const buffedFinal = hitsAfterSkill
+
 // the URL must restore the whole state in a fresh page
 const shareUrl = page.url()
 if (!shareUrl.includes('#')) throw new Error('URL has no state hash')
@@ -81,8 +96,10 @@ await fresh.getByText('Intercessor Squad').first().waitFor({ timeout: 5000 })
 await fresh.getByText('Plague Marines').first().waitFor()
 await fresh.getByText('Probability', { exact: false }).waitFor()
 const restoredHits = await stat(fresh, 'Hits')
-if (restoredHits !== buffed) {
-  throw new Error(`URL restore mismatch: hits ${restoredHits} != ${buffed}`)
+if (restoredHits !== buffedFinal) {
+  throw new Error(
+    `URL restore mismatch: hits ${restoredHits} != ${buffedFinal}`,
+  )
 }
 console.log('URL restore works')
 await page.screenshot({ path: '/tmp/cogitator-smoke.png', fullPage: true })

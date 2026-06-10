@@ -149,13 +149,22 @@ export function runSimulation(
   edition: string,
   rows: ProfileRow[],
   counts: Record<string, number>,
+  /** Per-row BS/WS characteristic overrides (stack with roll modifiers) */
+  skills: Record<string, number>,
   defender: DefenderConfig,
   context: AttackContext,
 ): AttackResult | undefined {
   const engine = engines[edition]
   if (!engine) return undefined
   const weapons: WeaponInput[] = rows
-    .map((row) => ({ profile: row.profile, count: counts[row.key] ?? 0 }))
+    .map((row) => {
+      const skill = skills[row.key]
+      const profile =
+        skill !== undefined && row.profile.skill > 0
+          ? { ...row.profile, skill }
+          : row.profile
+      return { profile, count: counts[row.key] ?? 0 }
+    })
     .filter((w) => w.count > 0)
   return engine.resolveAttacks(weapons, toDefenderInput(defender), context)
 }

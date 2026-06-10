@@ -18,10 +18,13 @@ interface AttackerPanelProps {
   mode: AttackMode
   rows: ProfileRow[]
   counts: Record<string, number>
+  /** BS/WS characteristic overrides by row key */
+  skills: Record<string, number>
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
   onModeChange: (mode: AttackMode) => void
   onCountChange: (key: string, count: number) => void
+  onSkillChange: (key: string, skill: number | undefined) => void
 }
 
 const statText = (p: ProfileRow['profile']) =>
@@ -41,10 +44,12 @@ export function AttackerPanel({
   mode,
   rows,
   counts,
+  skills,
   onFactionChange,
   onUnitChange,
   onModeChange,
   onCountChange,
+  onSkillChange,
 }: AttackerPanelProps) {
   return (
     <Panel>
@@ -99,13 +104,39 @@ export function AttackerPanel({
                         </p>
                       )}
                     </div>
-                    <NumberStepper
-                      value={counts[row.key] ?? 0}
-                      min={0}
-                      max={row.maxCount}
-                      onChange={(v) => onCountChange(row.key, v)}
-                      label={row.profile.name}
-                    />
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <NumberStepper
+                        value={counts[row.key] ?? 0}
+                        min={0}
+                        max={row.maxCount}
+                        onChange={(v) => onCountChange(row.key, v)}
+                        label={row.profile.name}
+                      />
+                      {row.profile.skill > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] uppercase text-[var(--text-muted)]">
+                            {row.profile.type === 'ranged' ? 'BS' : 'WS'}
+                          </span>
+                          <NumberStepper
+                            value={skills[row.key] ?? row.profile.skill}
+                            min={2}
+                            max={6}
+                            format={(v) => `${v}+`}
+                            emphasis={
+                              (skills[row.key] ?? row.profile.skill) !==
+                              row.profile.skill
+                            }
+                            onChange={(v) =>
+                              onSkillChange(
+                                row.key,
+                                v === row.profile.skill ? undefined : v,
+                              )
+                            }
+                            label={`${row.profile.name} skill`}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

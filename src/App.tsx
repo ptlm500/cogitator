@@ -27,6 +27,7 @@ function App() {
   // URL-provided values consumed once, when their unit's data first loads
   const [pending, setPending] = useState({
     counts: initial.counts,
+    skills: initial.skills,
     statlineId: initial.statlineId,
     models: initial.models,
   })
@@ -37,6 +38,8 @@ function App() {
   const [attackerUnitId, setAttackerUnitId] = useState(initial.attackerUnitId)
   const [mode, setMode] = useState<AttackMode>(initial.mode ?? 'shooting')
   const [counts, setCounts] = useState<Record<string, number>>({})
+  // BS/WS characteristic overrides by row key (only deltas are stored)
+  const [skills, setSkills] = useState<Record<string, number>>({})
 
   const [defenderFaction, setDefenderFaction] = useState(
     initial.defenderFaction,
@@ -63,11 +66,20 @@ function App() {
   const [countsFor, setCountsFor] = useState<typeof rows>()
   if (countsFor !== rows) {
     setCountsFor(rows)
-    const defaults = Object.fromEntries(
-      rows.map((r) => [r.key, r.defaultCount]),
-    )
-    setCounts({ ...defaults, ...pending.counts })
-    if (pending.counts) setPending((p) => ({ ...p, counts: undefined }))
+    if (rows.length > 0) {
+      const defaults = Object.fromEntries(
+        rows.map((r) => [r.key, r.defaultCount]),
+      )
+      setCounts({ ...defaults, ...pending.counts })
+      setSkills(pending.skills ?? {})
+      // URL-provided values are for the first real loadout only
+      if (pending.counts || pending.skills) {
+        setPending((p) => ({ ...p, counts: undefined, skills: undefined }))
+      }
+    } else {
+      setCounts({})
+      setSkills({})
+    }
   }
 
   // reset defender configuration when the defender unit changes
@@ -89,6 +101,7 @@ function App() {
       edition,
       rows,
       counts,
+      skills,
       { unit: defender, statlineId: statlineId ?? '', models, overrides },
       context,
     )
@@ -98,6 +111,7 @@ function App() {
     defender,
     rows,
     counts,
+    skills,
     statlineId,
     models,
     overrides,
@@ -118,6 +132,7 @@ function App() {
       attackerUnitId,
       mode,
       counts: changed,
+      skills,
       defenderFaction,
       defenderUnitId,
       statlineId,
@@ -132,6 +147,7 @@ function App() {
     mode,
     rows,
     counts,
+    skills,
     defenderFaction,
     defenderUnitId,
     statlineId,
@@ -202,6 +218,7 @@ function App() {
           mode={mode}
           rows={rows}
           counts={counts}
+          skills={skills}
           onFactionChange={(f) => {
             setAttackerFaction(f)
             setAttackerUnitId(undefined)
@@ -210,6 +227,14 @@ function App() {
           onModeChange={setMode}
           onCountChange={(key, count) =>
             setCounts((c) => ({ ...c, [key]: count }))
+          }
+          onSkillChange={(key, skill) =>
+            setSkills((s) => {
+              const next = { ...s }
+              if (skill === undefined) delete next[key]
+              else next[key] = skill
+              return next
+            })
           }
         />
         <DefenderPanel

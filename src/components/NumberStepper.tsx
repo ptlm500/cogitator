@@ -4,6 +4,9 @@ interface NumberStepperProps {
   max: number
   onChange: (value: number) => void
   label?: string
+  format?: (value: number) => string
+  /** Highlight the value, e.g. when it overrides a data-derived default */
+  emphasis?: boolean
 }
 
 export function NumberStepper({
@@ -12,6 +15,8 @@ export function NumberStepper({
   max,
   onChange,
   label,
+  format = (v) => String(v),
+  emphasis = false,
 }: NumberStepperProps) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v))
   const buttonClass =
@@ -30,8 +35,15 @@ export function NumberStepper({
       >
         -
       </button>
-      <span className="w-8 text-center font-mono text-sm text-[var(--text-primary)]">
-        {value}
+      <span
+        className={
+          'w-8 text-center font-mono text-sm ' +
+          (emphasis
+            ? 'text-[var(--color-amber)]'
+            : 'text-[var(--text-primary)]')
+        }
+      >
+        {format(value)}
       </span>
       <button
         type="button"

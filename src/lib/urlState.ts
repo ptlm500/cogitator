@@ -10,6 +10,8 @@ export interface SharedState {
   mode?: AttackMode
   /** Weapon counts that differ from the default loadout */
   counts?: Record<string, number>
+  /** Per-row BS/WS characteristic overrides */
+  skills?: Record<string, number>
   defenderFaction?: string
   defenderUnitId?: string
   statlineId?: string
@@ -46,6 +48,10 @@ export function serializeState(state: SharedState): string {
   if (counts.length > 0) {
     set('wc', counts.map(([k, v]) => `${k}:${v}`).join(','))
   }
+  const skills = Object.entries(state.skills ?? {})
+  if (skills.length > 0) {
+    set('sk', skills.map(([k, v]) => `${k}:${v}`).join(','))
+  }
   set('df', state.defenderFaction)
   set('du', state.defenderUnitId)
   set('ds', state.statlineId)
@@ -79,16 +85,19 @@ export function parseState(hash: string): SharedState {
   state.attackerFaction = get('af')
   state.attackerUnitId = get('au')
   if (p.get('m') === 'melee') state.mode = 'melee'
-  const wc = p.get('wc')
-  if (wc) {
-    state.counts = {}
-    for (const entry of wc.split(',')) {
+  const parseKeyedNumbers = (raw: string | null) => {
+    if (!raw) return undefined
+    const out: Record<string, number> = {}
+    for (const entry of raw.split(',')) {
       const i = entry.lastIndexOf(':')
       if (i <= 0) continue
-      const count = Number(entry.slice(i + 1))
-      if (Number.isFinite(count)) state.counts[entry.slice(0, i)] = count
+      const value = Number(entry.slice(i + 1))
+      if (Number.isFinite(value)) out[entry.slice(0, i)] = value
     }
+    return Object.keys(out).length > 0 ? out : undefined
   }
+  state.counts = parseKeyedNumbers(p.get('wc'))
+  state.skills = parseKeyedNumbers(p.get('sk'))
   state.defenderFaction = get('df')
   state.defenderUnitId = get('du')
   state.statlineId = get('ds')
