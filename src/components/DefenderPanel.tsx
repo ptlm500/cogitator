@@ -23,7 +23,7 @@ interface DefenderPanelProps {
   statlineId?: string
   models: number
   onFactionChange: (file: string) => void
-  onUnitChange: (unit: Unit) => void
+  onUnitChange: (unitId: string) => void
   onStatlineChange: (id: string) => void
   onModelsChange: (models: number) => void
 }

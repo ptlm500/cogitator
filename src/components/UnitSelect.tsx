@@ -6,14 +6,13 @@ import {
   SelectValue,
 } from '@/components/ui/select/select'
 import { useDataIndex, useFaction } from '@/data/hooks.ts'
-import type { Unit } from '@/data/types.ts'
 
 interface UnitSelectProps {
   edition: string
   factionFile?: string
   unitId?: string
   onFactionChange: (file: string) => void
-  onUnitChange: (unit: Unit) => void
+  onUnitChange: (unitId: string) => void
 }
 
 export function UnitSelect({
@@ -52,10 +51,7 @@ export function UnitSelect({
       </Select>
       <Select
         value={unitId ?? ''}
-        onValueChange={(id) => {
-          const unit = faction.data?.units.find((u) => u.id === id)
-          if (unit) onUnitChange(unit)
-        }}
+        onValueChange={onUnitChange}
         disabled={!faction.data}
       >
         <SelectTrigger aria-label="Unit">

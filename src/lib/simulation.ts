@@ -106,23 +106,41 @@ export function profileRows(unit: Unit, mode: AttackMode): ProfileRow[] {
   return rows
 }
 
+/** Manual overrides for defender traits; undefined means "from data" */
+export interface DefenderOverrides {
+  invuln?: number | 'none'
+  feelNoPain?: number | 'none'
+  damageReduction?: boolean
+}
+
 export interface DefenderConfig {
   unit: Unit
   statlineId: string
   models: number
+  overrides?: DefenderOverrides
+}
+
+function override(
+  manual: number | 'none' | undefined,
+  fromData: number | undefined,
+): number | undefined {
+  if (manual === 'none') return undefined
+  return manual ?? fromData
 }
 
 export function toDefenderInput(config: DefenderConfig): DefenderInput {
   const stat =
     config.unit.statlines.find((s) => s.id === config.statlineId) ??
     config.unit.statlines[0]
+  const overrides = config.overrides ?? {}
   return {
     toughness: stat.T,
     save: stat.SV,
     wounds: Math.max(1, stat.W),
     models: Math.max(1, config.models),
-    invuln: config.unit.invuln,
-    feelNoPain: config.unit.feelNoPain,
+    invuln: override(overrides.invuln, config.unit.invuln),
+    feelNoPain: override(overrides.feelNoPain, config.unit.feelNoPain),
+    damageReduction: overrides.damageReduction ? 1 : 0,
     keywords: config.unit.keywords,
   }
 }

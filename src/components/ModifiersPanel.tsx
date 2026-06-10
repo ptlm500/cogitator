@@ -1,0 +1,153 @@
+import {
+  Panel,
+  PanelContent,
+  PanelHeader,
+  PanelTitle,
+} from '@/components/ui/panel/panel'
+import type { DefenderOverrides } from '@/lib/simulation.ts'
+import type { AttackContext, RerollMode } from '@/rules/types.ts'
+import { SegmentedControl } from './SegmentedControl.tsx'
+
+interface ModifiersPanelProps {
+  context: AttackContext
+  overrides: DefenderOverrides
+  onContextChange: (context: AttackContext) => void
+  onOverridesChange: (overrides: DefenderOverrides) => void
+}
+
+const MOD_OPTIONS = [
+  { value: -1, label: '-1' },
+  { value: 0, label: '0' },
+  { value: 1, label: '+1' },
+]
+
+const REROLL_OPTIONS: { value: RerollMode; label: string }[] = [
+  { value: 'none', label: '—' },
+  { value: 'ones', label: '1s' },
+  { value: 'fails', label: 'All' },
+]
+
+const SAVE_OPTIONS = (suffix: string) => [
+  { value: 'auto' as const, label: 'Data' },
+  { value: 'none' as const, label: '—' },
+  ...[3, 4, 5, 6].map((n) => ({ value: n, label: `${n}${suffix}` })),
+]
+
+const SITUATION: { key: keyof AttackContext; label: string; hint: string }[] = [
+  { key: 'halfRange', label: 'Half range', hint: 'Rapid Fire / Melta' },
+  { key: 'stationary', label: 'Stationary', hint: 'Heavy' },
+  { key: 'charged', label: 'Charged', hint: 'Lance' },
+  { key: 'inCover', label: 'In cover', hint: 'Benefit of Cover' },
+]
+
+export function ModifiersPanel({
+  context,
+  overrides,
+  onContextChange,
+  onOverridesChange,
+}: ModifiersPanelProps) {
+  const ctx = (patch: Partial<AttackContext>) =>
+    onContextChange({ ...context, ...patch })
+  const ovr = (patch: Partial<DefenderOverrides>) =>
+    onOverridesChange({ ...overrides, ...patch })
+  const fromManual = (v: number | 'none' | undefined) => v ?? 'auto'
+  const toManual = (v: number | 'none' | 'auto') =>
+    v === 'auto' ? undefined : v
+
+  return (
+    <Panel>
+      <PanelHeader>
+        <PanelTitle>Modifiers</PanelTitle>
+      </PanelHeader>
+      <PanelContent className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">
+              Situation
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {SITUATION.map(({ key, label, hint }) => {
+                const active = Boolean(context[key])
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    title={hint}
+                    aria-pressed={active}
+                    onClick={() => ctx({ [key]: !active })}
+                    className={
+                      'border px-2 py-1 font-mono text-xs uppercase ' +
+                      (active
+                        ? 'border-[var(--color-green)] text-[var(--color-green)]'
+                        : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]')
+                    }
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
+          <SegmentedControl
+            label="Hit roll"
+            options={MOD_OPTIONS}
+            value={context.hitMod ?? 0}
+            onChange={(v) => ctx({ hitMod: v })}
+          />
+          <SegmentedControl
+            label="Wound roll"
+            options={MOD_OPTIONS}
+            value={context.woundMod ?? 0}
+            onChange={(v) => ctx({ woundMod: v })}
+          />
+          <SegmentedControl
+            label="Re-roll hits"
+            options={REROLL_OPTIONS}
+            value={context.rerollHits ?? 'none'}
+            onChange={(v) => ctx({ rerollHits: v })}
+          />
+          <SegmentedControl
+            label="Re-roll wounds"
+            options={REROLL_OPTIONS}
+            value={context.rerollWounds ?? 'none'}
+            onChange={(v) => ctx({ rerollWounds: v })}
+          />
+          <SegmentedControl
+            label="Crit hits on"
+            options={[
+              { value: 6, label: '6+' },
+              { value: 5, label: '5+' },
+            ]}
+            value={context.critHitOn ?? 6}
+            onChange={(v) => ctx({ critHitOn: v })}
+          />
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
+          <SegmentedControl
+            label="Defender invuln"
+            options={SAVE_OPTIONS('++')}
+            value={fromManual(overrides.invuln)}
+            onChange={(v) => ovr({ invuln: toManual(v) })}
+          />
+          <SegmentedControl
+            label="Defender FNP"
+            options={SAVE_OPTIONS('+')}
+            value={fromManual(overrides.feelNoPain)}
+            onChange={(v) => ovr({ feelNoPain: toManual(v) })}
+          />
+          <SegmentedControl
+            label="Damage reduction"
+            options={[
+              { value: 0, label: 'Off' },
+              { value: 1, label: '-1 Dmg' },
+            ]}
+            value={overrides.damageReduction ? 1 : 0}
+            onChange={(v) => ovr({ damageReduction: v === 1 })}
+          />
+        </div>
+      </PanelContent>
+    </Panel>
+  )
+}

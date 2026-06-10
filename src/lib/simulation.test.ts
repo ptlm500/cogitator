@@ -198,8 +198,20 @@ describe('toDefenderInput', () => {
       models: 5,
       invuln: 5,
       feelNoPain: undefined,
+      damageReduction: 0,
       keywords: ['Infantry'],
     })
+  })
+
+  it('applies manual overrides over data values', () => {
+    expect(
+      toDefenderInput({
+        unit,
+        statlineId: 's1',
+        models: 5,
+        overrides: { invuln: 'none', feelNoPain: 5, damageReduction: true },
+      }),
+    ).toMatchObject({ invuln: undefined, feelNoPain: 5, damageReduction: 1 })
   })
 })
 

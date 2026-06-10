@@ -19,7 +19,7 @@ interface AttackerPanelProps {
   rows: ProfileRow[]
   counts: Record<string, number>
   onFactionChange: (file: string) => void
-  onUnitChange: (unit: Unit) => void
+  onUnitChange: (unitId: string) => void
   onModeChange: (mode: AttackMode) => void
   onCountChange: (key: string, count: number) => void
 }
