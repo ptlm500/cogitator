@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "data:build": "node pipeline/index.ts",
+    "data:update": "node pipeline/index.ts --update-pin"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.3.0",
@@ -35,6 +37,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "fast-xml-parser": "^5.8.0",
     "globals": "^17.6.0",
     "prettier": "^3.8.4",
     "typescript": "~6.0.3",

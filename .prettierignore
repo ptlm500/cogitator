@@ -1,3 +1,4 @@
 dist
 pnpm-lock.yaml
 src/styles/globals.css
+public/data

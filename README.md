@@ -27,6 +27,19 @@ UI components are [scificn-ui](https://www.scificn.dev/), vendored shadcn-style 
 pnpm dlx shadcn@latest add @scificn/<component>
 ```
 
+## Unit data
+
+Unit data is generated from the BattleScribe catalogues in
+[BSData/wh40k-10e](https://github.com/BSData/wh40k-10e) by the scripts in
+`pipeline/`, and committed under `public/data/10e/` (an `index.json` plus one
+JSON file per faction, lazy-loaded by the app). The BSData commit is pinned in
+`pipeline/bsdata-pin.json` for reproducible builds.
+
+```bash
+pnpm data:build    # regenerate from the pinned BSData commit
+pnpm data:update   # re-pin to BSData main HEAD and regenerate
+```
+
 ## Deployment
 
 Pushes to `main` build and deploy to GitHub Pages via `.github/workflows/deploy.yml`.

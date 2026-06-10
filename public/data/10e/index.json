@@ -1,0 +1,261 @@
+{
+  "schema": 1,
+  "edition": "10e",
+  "source": "BSData/wh40k-10e",
+  "sha": "f4811443fcd2dfdb3c317c1eeba899c2b9174bc9",
+  "generatedAt": "2026-06-10T19:38:33.467Z",
+  "factions": [
+    {
+      "id": "d265-877b-e03d-30ca",
+      "slug": "chaos-chaos-daemons",
+      "name": "Chaos - Chaos Daemons",
+      "file": "chaos-chaos-daemons.json",
+      "unitCount": 31
+    },
+    {
+      "id": "46d8-abc8-ef3a-9f85",
+      "slug": "chaos-chaos-knights",
+      "name": "Chaos - Chaos Knights",
+      "file": "chaos-chaos-knights.json",
+      "unitCount": 17
+    },
+    {
+      "id": "c8da-e875-58f7-f6d6",
+      "slug": "chaos-chaos-space-marines",
+      "name": "Chaos - Chaos Space Marines",
+      "file": "chaos-chaos-space-marines.json",
+      "unitCount": 114
+    },
+    {
+      "id": "5108-f98-63c2-53cb",
+      "slug": "chaos-death-guard",
+      "name": "Chaos - Death Guard",
+      "file": "chaos-death-guard.json",
+      "unitCount": 77
+    },
+    {
+      "id": "03fe-a162-4c02-f07b",
+      "slug": "chaos-emperor-s-children",
+      "name": "Chaos - Emperor's Children",
+      "file": "chaos-emperor-s-children.json",
+      "unitCount": 29
+    },
+    {
+      "id": "1069-10ff-3ba9-873b",
+      "slug": "chaos-thousand-sons",
+      "name": "Chaos - Thousand Sons",
+      "file": "chaos-thousand-sons.json",
+      "unitCount": 68
+    },
+    {
+      "id": "880c-c7e-4a43-a0c1",
+      "slug": "chaos-titanicus-traitoris",
+      "name": "Chaos - Titanicus Traitoris",
+      "file": "chaos-titanicus-traitoris.json",
+      "unitCount": 4
+    },
+    {
+      "id": "df9a-59b2-f464-59ad",
+      "slug": "chaos-world-eaters",
+      "name": "Chaos - World Eaters",
+      "file": "chaos-world-eaters.json",
+      "unitCount": 64
+    },
+    {
+      "id": "b39e-4401-8f3e-fdf7",
+      "slug": "imperium-adepta-sororitas",
+      "name": "Imperium - Adepta Sororitas",
+      "file": "imperium-adepta-sororitas.json",
+      "unitCount": 46
+    },
+    {
+      "id": "36d3-36bc-68dd-40ac",
+      "slug": "imperium-adeptus-astartes-black-templars",
+      "name": "Imperium - Adeptus Astartes - Black Templars",
+      "file": "imperium-adeptus-astartes-black-templars.json",
+      "unitCount": 20
+    },
+    {
+      "id": "4ef9-15ce-e3e6-36de",
+      "slug": "imperium-adeptus-astartes-blood-angels",
+      "name": "Imperium - Adeptus Astartes - Blood Angels",
+      "file": "imperium-adeptus-astartes-blood-angels.json",
+      "unitCount": 27
+    },
+    {
+      "id": "470a-6daa-9014-12df",
+      "slug": "imperium-adeptus-astartes-dark-angels",
+      "name": "Imperium - Adeptus Astartes - Dark Angels",
+      "file": "imperium-adeptus-astartes-dark-angels.json",
+      "unitCount": 19
+    },
+    {
+      "id": "f89b-84e0-6e3b-f1e2",
+      "slug": "imperium-adeptus-astartes-deathwatch",
+      "name": "Imperium - Adeptus Astartes - Deathwatch",
+      "file": "imperium-adeptus-astartes-deathwatch.json",
+      "unitCount": 16
+    },
+    {
+      "id": "5d6e-fd3-330a-11dd",
+      "slug": "imperium-adeptus-astartes-imperial-fists",
+      "name": "Imperium - Adeptus Astartes - Imperial Fists",
+      "file": "imperium-adeptus-astartes-imperial-fists.json",
+      "unitCount": 3
+    },
+    {
+      "id": "f27e-18c0-b73e-748e",
+      "slug": "imperium-adeptus-astartes-iron-hands",
+      "name": "Imperium - Adeptus Astartes - Iron Hands",
+      "file": "imperium-adeptus-astartes-iron-hands.json",
+      "unitCount": 2
+    },
+    {
+      "id": "6e59-e1ee-47ad-6ce5",
+      "slug": "imperium-adeptus-astartes-raven-guard",
+      "name": "Imperium - Adeptus Astartes - Raven Guard",
+      "file": "imperium-adeptus-astartes-raven-guard.json",
+      "unitCount": 2
+    },
+    {
+      "id": "2261-79a5-19d9-1668",
+      "slug": "imperium-adeptus-astartes-salamanders",
+      "name": "Imperium - Adeptus Astartes - Salamanders",
+      "file": "imperium-adeptus-astartes-salamanders.json",
+      "unitCount": 2
+    },
+    {
+      "id": "e0af-67df-9d63-8fb7",
+      "slug": "imperium-adeptus-astartes-space-marines",
+      "name": "Imperium - Adeptus Astartes - Space Marines",
+      "file": "imperium-adeptus-astartes-space-marines.json",
+      "unitCount": 158
+    },
+    {
+      "id": "94bb-3284-ee14-57a1",
+      "slug": "imperium-adeptus-astartes-space-wolves",
+      "name": "Imperium - Adeptus Astartes - Space Wolves",
+      "file": "imperium-adeptus-astartes-space-wolves.json",
+      "unitCount": 41
+    },
+    {
+      "id": "4029-9237-e8db-af55",
+      "slug": "imperium-adeptus-astartes-ultramarines",
+      "name": "Imperium - Adeptus Astartes - Ultramarines",
+      "file": "imperium-adeptus-astartes-ultramarines.json",
+      "unitCount": 15
+    },
+    {
+      "id": "67c1-fc13-f9a1-cbbf",
+      "slug": "imperium-adeptus-astartes-white-scars",
+      "name": "Imperium - Adeptus Astartes - White Scars",
+      "file": "imperium-adeptus-astartes-white-scars.json",
+      "unitCount": 2
+    },
+    {
+      "id": "1f19-6509-d906-ca10",
+      "slug": "imperium-adeptus-custodes",
+      "name": "Imperium - Adeptus Custodes",
+      "file": "imperium-adeptus-custodes.json",
+      "unitCount": 34
+    },
+    {
+      "id": "77b9-2f66-3f9b-5cf3",
+      "slug": "imperium-adeptus-mechanicus",
+      "name": "Imperium - Adeptus Mechanicus",
+      "file": "imperium-adeptus-mechanicus.json",
+      "unitCount": 41
+    },
+    {
+      "id": "bdc0-c0d-72d7-87e2",
+      "slug": "imperium-adeptus-titanicus",
+      "name": "Imperium - Adeptus Titanicus",
+      "file": "imperium-adeptus-titanicus.json",
+      "unitCount": 4
+    },
+    {
+      "id": "b00-cd86-4b4c-97ba",
+      "slug": "imperium-agents-of-the-imperium",
+      "name": "Imperium - Agents of the Imperium",
+      "file": "imperium-agents-of-the-imperium.json",
+      "unitCount": 54
+    },
+    {
+      "id": "b0ae-12a5-c84-ea45",
+      "slug": "imperium-astra-militarum",
+      "name": "Imperium - Astra Militarum",
+      "file": "imperium-astra-militarum.json",
+      "unitCount": 136
+    },
+    {
+      "id": "50c4-3e83-fe54-97c4",
+      "slug": "imperium-grey-knights",
+      "name": "Imperium - Grey Knights",
+      "file": "imperium-grey-knights.json",
+      "unitCount": 35
+    },
+    {
+      "id": "25dd-7aa0-6bf4-f2d5",
+      "slug": "imperium-imperial-knights",
+      "name": "Imperium - Imperial Knights",
+      "file": "imperium-imperial-knights.json",
+      "unitCount": 5
+    },
+    {
+      "id": "34a5-8c7e-f468-82d1",
+      "slug": "xenos-aeldari",
+      "name": "Xenos - Aeldari",
+      "file": "xenos-aeldari.json",
+      "unitCount": 100
+    },
+    {
+      "id": "38de-521f-1ce0-44a0",
+      "slug": "xenos-drukhari",
+      "name": "Xenos - Drukhari",
+      "file": "xenos-drukhari.json",
+      "unitCount": 48
+    },
+    {
+      "id": "3bdf-a114-5035-c6ac",
+      "slug": "xenos-genestealer-cults",
+      "name": "Xenos - Genestealer Cults",
+      "file": "xenos-genestealer-cults.json",
+      "unitCount": 146
+    },
+    {
+      "id": "f616-3f08-ee8e-3349",
+      "slug": "xenos-leagues-of-votann",
+      "name": "Xenos - Leagues of Votann",
+      "file": "xenos-leagues-of-votann.json",
+      "unitCount": 25
+    },
+    {
+      "id": "b654-a18a-ea1-3bf2",
+      "slug": "xenos-necrons",
+      "name": "Xenos - Necrons",
+      "file": "xenos-necrons.json",
+      "unitCount": 66
+    },
+    {
+      "id": "a55f-b7b3-6c65-a05f",
+      "slug": "xenos-orks",
+      "name": "Xenos - Orks",
+      "file": "xenos-orks.json",
+      "unitCount": 96
+    },
+    {
+      "id": "d81a-61dd-6d27-a3ce",
+      "slug": "xenos-t-au-empire",
+      "name": "Xenos - T'au Empire",
+      "file": "xenos-t-au-empire.json",
+      "unitCount": 66
+    },
+    {
+      "id": "b984-7317-81cc-20f",
+      "slug": "xenos-tyranids",
+      "name": "Xenos - Tyranids",
+      "file": "xenos-tyranids.json",
+      "unitCount": 63
+    }
+  ]
+}
