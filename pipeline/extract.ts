@@ -90,7 +90,122 @@ interface ResolvedChild {
 // Crusade bookkeeping and detachment-specific enhancements
 const SKIPPED_CHILDREN = new Set(['Crusade', 'Enhancements'])
 
-function resolvedChildren(node: BSNode, index: BsIndex): ResolvedChild[] {
+// --- visibility -------------------------------------------------------------
+//
+// BSData shares wargear subtrees across datasheets and specialises them with
+// `hidden` attributes plus `set hidden` modifiers conditioned on the unit's
+// identity (e.g. the shared T'au "Drones" group hides its Missile Drone for
+// every unit that isn't a Broadside). We evaluate the statically-knowable
+// part of that: instanceOf/notInstanceOf conditions with ancestor scope,
+// checked against the ids and categories of the unit being extracted.
+// Anything else (selection counts, force/roster state) is 'unknown' and the
+// modifier is skipped, so we never hide based on a guess.
+
+/** Ids identifying the unit being extracted: its entry, link, categories,
+ * owning catalogue, and the entries walked through on the way down. */
+export type AncestorContext = Set<string>
+
+type Verdict = boolean | 'unknown'
+
+function combine(op: 'and' | 'or', verdicts: Verdict[]): Verdict {
+  if (verdicts.length === 0) return true
+  if (op === 'and') {
+    if (verdicts.includes(false)) return false
+    return verdicts.includes('unknown') ? 'unknown' : true
+  }
+  if (verdicts.includes(true)) return true
+  return verdicts.includes('unknown') ? 'unknown' : false
+}
+
+function evalCondition(cond: BSNode, ctx: AncestorContext): Verdict {
+  if (str(cond.scope) !== 'ancestor') return 'unknown'
+  const type = str(cond.type)
+  if (type === 'instanceOf') return ctx.has(str(cond.childId))
+  if (type === 'notInstanceOf') return !ctx.has(str(cond.childId))
+  return 'unknown'
+}
+
+function evalConditionGroup(group: BSNode, ctx: AncestorContext): Verdict {
+  const op = str(group.type) === 'or' ? 'or' : 'and'
+  return combine(op, [
+    ...kids(group, 'conditions', 'condition').map((c) => evalCondition(c, ctx)),
+    ...kids(group, 'conditionGroups', 'conditionGroup').map((g) =>
+      evalConditionGroup(g, ctx),
+    ),
+  ])
+}
+
+/** All conditions attached directly to a modifier or modifier group (AND) */
+function evalOwnConditions(node: BSNode, ctx: AncestorContext): Verdict {
+  return combine('and', [
+    ...kids(node, 'conditions', 'condition').map((c) => evalCondition(c, ctx)),
+    ...kids(node, 'conditionGroups', 'conditionGroup').map((g) =>
+      evalConditionGroup(g, ctx),
+    ),
+  ])
+}
+
+/**
+ * Apply `set hidden` modifiers (including nested modifier groups).
+ *
+ * Unknown verdicts resolve in favour of visibility: a hide only applies
+ * when its conditions are definitively true, while a reveal applies unless
+ * they are definitively false. Options gated on selection state (e.g. god
+ * marks unlocking weapon groups) thus stay listed as possible loadouts.
+ */
+function applyHiddenModifiers(
+  container: BSNode,
+  ctx: AncestorContext,
+  hidden: boolean,
+  outer: Verdict = true,
+): boolean {
+  for (const m of modifiersOf(container)) {
+    if (m.type !== 'set' || m.field !== 'hidden') continue
+    const verdict = combine('and', [outer, evalOwnConditions(m, ctx)])
+    const wantsHide = str(m.value) === 'true'
+    if (wantsHide ? verdict === true : verdict !== false) hidden = wantsHide
+  }
+  for (const g of kids(container, 'modifierGroups', 'modifierGroup')) {
+    const verdict = combine('and', [outer, evalOwnConditions(g, ctx)])
+    if (verdict !== false) {
+      hidden = applyHiddenModifiers(g, ctx, hidden, verdict)
+    }
+  }
+  return hidden
+}
+
+/** Effective visibility: an element is shown only if neither the link nor
+ * its target resolves to hidden after identity-conditioned modifiers. */
+function isHidden(child: ResolvedChild, ctx: AncestorContext): boolean {
+  if (
+    applyHiddenModifiers(child.node, ctx, str(child.node.hidden) === 'true')
+  ) {
+    return true
+  }
+  if (
+    child.link &&
+    applyHiddenModifiers(child.link, ctx, str(child.link.hidden) === 'true')
+  ) {
+    return true
+  }
+  return false
+}
+
+function extendContext(
+  ctx: AncestorContext,
+  child: ResolvedChild,
+): AncestorContext {
+  const next = new Set(ctx)
+  if (typeof child.node.id === 'string') next.add(child.node.id)
+  if (child.link && typeof child.link.id === 'string') next.add(child.link.id)
+  return next
+}
+
+function resolvedChildren(
+  node: BSNode,
+  index: BsIndex,
+  ctx: AncestorContext,
+): ResolvedChild[] {
   const out: ResolvedChild[] = []
   for (const e of entries(node)) out.push({ node: e })
   for (const g of groups(node)) out.push({ node: g })
@@ -101,7 +216,8 @@ function resolvedChildren(node: BSNode, index: BsIndex): ResolvedChild[] {
   return out.filter(
     (c) =>
       !SKIPPED_CHILDREN.has(str(c.link?.name)) &&
-      !SKIPPED_CHILDREN.has(str(c.node.name)),
+      !SKIPPED_CHILDREN.has(str(c.node.name)) &&
+      !isHidden(c, ctx),
   )
 }
 
@@ -225,12 +341,13 @@ function collectWeapons(
   index: BsIndex,
   acc: UnitAccumulator,
   out: WeaponRef[],
+  ctx: AncestorContext,
   choiceGroup?: string,
   groupDefaultId?: string,
   depth = 0,
 ): void {
   if (depth > 6) return
-  for (const child of resolvedChildren(node, index)) {
+  for (const child of resolvedChildren(node, index, ctx)) {
     const { node: n, link } = child
     if (n.type === 'model' || n.type === 'unit') continue
     const weapon = weaponFromEntry(n, index)
@@ -257,7 +374,16 @@ function collectWeapons(
       n.type === undefined
         ? str(n.defaultSelectionEntryId) || undefined
         : groupDefaultId
-    collectWeapons(n, index, acc, out, nextGroup, nextDefault, depth + 1)
+    collectWeapons(
+      n,
+      index,
+      acc,
+      out,
+      extendContext(ctx, child),
+      nextGroup,
+      nextDefault,
+      depth + 1,
+    )
   }
 }
 
@@ -265,6 +391,7 @@ function extractModel(
   child: ResolvedChild,
   index: BsIndex,
   acc: UnitAccumulator,
+  ctx: AncestorContext,
 ): void {
   const { node } = child
   const { min, max } = childRange(child)
@@ -279,7 +406,7 @@ function extractModel(
   collectUnitProfiles(node, index, acc)
   const own = allProfiles(node, index).find((p) => p.typeName === 'Unit')
   const weapons: WeaponRef[] = []
-  collectWeapons(node, index, acc, weapons)
+  collectWeapons(node, index, acc, weapons, extendContext(ctx, child))
   acc.models.push({
     id: str(node.id),
     name: str(node.name),
@@ -294,19 +421,21 @@ function walkUnitChildren(
   node: BSNode,
   index: BsIndex,
   acc: UnitAccumulator,
+  ctx: AncestorContext,
   depth = 0,
 ): void {
   if (depth > 6) return
-  for (const child of resolvedChildren(node, index)) {
+  for (const child of resolvedChildren(node, index, ctx)) {
     const n = child.node
+    const childCtx = extendContext(ctx, child)
     if (n.type === 'model') {
-      extractModel(child, index, acc)
+      extractModel(child, index, acc, ctx)
     } else if (n.type === undefined) {
       // selection entry group
-      walkUnitChildren(n, index, acc, depth + 1)
+      walkUnitChildren(n, index, acc, childCtx, depth + 1)
     } else if (n.type === 'unit') {
       collectUnitProfiles(n, index, acc)
-      walkUnitChildren(n, index, acc, depth + 1)
+      walkUnitChildren(n, index, acc, childCtx, depth + 1)
     } else {
       // upgrade at unit level: may carry weapons (vehicles), abilities, or
       // wrap models (unit-size option entries like "2 Spanners and 8 Burna Boyz")
@@ -321,15 +450,18 @@ function walkUnitChildren(
           max: Math.max(max, min),
         })
       } else if (
-        resolvedChildren(n, index).some((c) => c.node.type === 'model')
+        resolvedChildren(n, index, childCtx).some(
+          (c) => c.node.type === 'model',
+        )
       ) {
-        walkUnitChildren(n, index, acc, depth + 1)
+        walkUnitChildren(n, index, acc, childCtx, depth + 1)
       } else {
         collectWeapons(
           n,
           index,
           acc,
           acc.looseWeapons,
+          childCtx,
           undefined,
           undefined,
           depth + 1,
@@ -372,6 +504,7 @@ export function extractUnit(
   node: BSNode,
   index: BsIndex,
   link?: BSNode,
+  rootIds: string[] = [],
 ): Unit | null {
   if (node.type !== 'unit' && node.type !== 'model') return null
   const acc: UnitAccumulator = {
@@ -381,13 +514,22 @@ export function extractUnit(
     models: [],
     looseWeapons: [],
   }
+  // identity for visibility conditions: the unit entry, the link it was
+  // reached through, its categories, and the owning catalogue
+  const ctx: AncestorContext = new Set(rootIds)
+  if (typeof node.id === 'string') ctx.add(node.id)
+  if (link && typeof link.id === 'string') ctx.add(str(link.id))
+  for (const c of categoryLinks(node)) {
+    if (typeof c.targetId === 'string') ctx.add(c.targetId)
+  }
+
   collectUnitProfiles(node, index, acc)
-  walkUnitChildren(node, index, acc)
+  walkUnitChildren(node, index, acc, ctx)
 
   // single-model unit: the unit entry is the model
   if (node.type === 'model' && acc.models.length === 0) {
     const weapons: WeaponRef[] = []
-    collectWeapons(node, index, acc, weapons)
+    collectWeapons(node, index, acc, weapons, ctx)
     acc.models.push({
       id: str(node.id),
       name: str(node.name),
@@ -449,8 +591,9 @@ export function extractFaction(
 
   const units: Unit[] = []
   const seen = new Set<string>()
+  const rootIds = typeof root.id === 'string' ? [root.id] : []
   const addUnit = (node: BSNode, link?: BSNode) => {
-    const unit = extractUnit(node, index, link)
+    const unit = extractUnit(node, index, link, rootIds)
     if (unit && !seen.has(unit.id)) {
       seen.add(unit.id)
       units.push(unit)

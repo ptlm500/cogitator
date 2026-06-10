@@ -82,6 +82,7 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
                     <constraint type="min" value="1" field="selections" scope="parent" id="cn-6"/>
                   </constraints>
                 </entryLink>
+                <entryLink id="link-pods-squad" name="Pods" type="selectionEntryGroup" targetId="grp-pods"/>
               </entryLinks>
             </selectionEntry>
           </selectionEntries>
@@ -114,12 +115,16 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
       <costs>
         <cost name="pts" typeId="pts-id" value="80"/>
       </costs>
+      <categoryLinks>
+        <categoryLink id="cl-h" name="Hero" targetId="cat-hero"/>
+      </categoryLinks>
       <entryLinks>
         <entryLink id="link-hero-fist" name="Power fist" type="selectionEntry" targetId="wpn-fist">
           <constraints>
             <constraint type="min" value="1" field="selections" scope="parent" id="cn-7"/>
           </constraints>
         </entryLink>
+        <entryLink id="link-pods-hero" name="Pods" type="selectionEntryGroup" targetId="grp-pods"/>
       </entryLinks>
     </selectionEntry>
     <selectionEntry id="wpn-rifle" name="Test Rifle" type="upgrade" hidden="false">
@@ -167,7 +172,101 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
         </profile>
       </profiles>
     </selectionEntry>
+    <selectionEntry id="wpn-heropod" name="Hero Pod" type="upgrade" hidden="false">
+      <profiles>
+        <profile id="prof-heropod" name="Hero Pod" typeName="Ranged Weapons" typeId="pt-ranged">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">30"</characteristic>
+            <characteristic name="A" typeId="c-a">2</characteristic>
+            <characteristic name="BS" typeId="c-bs">3+</characteristic>
+            <characteristic name="S" typeId="c-s">7</characteristic>
+            <characteristic name="AP" typeId="c-ap">-1</characteristic>
+            <characteristic name="D" typeId="c-d">2</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
+    <selectionEntry id="wpn-squadpod" name="Squad Pod" type="upgrade" hidden="false">
+      <profiles>
+        <profile id="prof-squadpod" name="Squad Pod" typeName="Ranged Weapons" typeId="pt-ranged">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">18"</characteristic>
+            <characteristic name="A" typeId="c-a">1</characteristic>
+            <characteristic name="BS" typeId="c-bs">3+</characteristic>
+            <characteristic name="S" typeId="c-s">5</characteristic>
+            <characteristic name="AP" typeId="c-ap">0</characteristic>
+            <characteristic name="D" typeId="c-d">1</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
+    <selectionEntry id="wpn-unlockpod" name="Unlockable Pod" type="upgrade" hidden="false">
+      <profiles>
+        <profile id="prof-unlockpod" name="Unlockable Pod" typeName="Ranged Weapons" typeId="pt-ranged">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">12"</characteristic>
+            <characteristic name="A" typeId="c-a">1</characteristic>
+            <characteristic name="BS" typeId="c-bs">3+</characteristic>
+            <characteristic name="S" typeId="c-s">4</characteristic>
+            <characteristic name="AP" typeId="c-ap">0</characteristic>
+            <characteristic name="D" typeId="c-d">1</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
+    <selectionEntry id="wpn-neverpod" name="Never Pod" type="upgrade" hidden="false">
+      <profiles>
+        <profile id="prof-neverpod" name="Never Pod" typeName="Ranged Weapons" typeId="pt-ranged">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">12"</characteristic>
+            <characteristic name="A" typeId="c-a">1</characteristic>
+            <characteristic name="BS" typeId="c-bs">3+</characteristic>
+            <characteristic name="S" typeId="c-s">4</characteristic>
+            <characteristic name="AP" typeId="c-ap">0</characteristic>
+            <characteristic name="D" typeId="c-d">1</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
   </sharedSelectionEntries>
+  <sharedSelectionEntryGroups>
+    <selectionEntryGroup id="grp-pods" name="Pods" hidden="false">
+      <entryLinks>
+        <entryLink id="lp-hero" name="Hero Pod" type="selectionEntry" targetId="wpn-heropod" hidden="false">
+          <modifiers>
+            <modifier type="set" value="true" field="hidden">
+              <conditions>
+                <condition type="notInstanceOf" value="1" field="selections" scope="ancestor" childId="cat-hero" id="cnd-1"/>
+              </conditions>
+            </modifier>
+          </modifiers>
+        </entryLink>
+        <entryLink id="lp-squad" name="Squad Pod" type="selectionEntry" targetId="wpn-squadpod" hidden="true">
+          <modifiers>
+            <modifier type="set" value="false" field="hidden">
+              <conditions>
+                <condition type="instanceOf" value="1" field="selections" scope="ancestor" childId="cat-infantry" id="cnd-2"/>
+              </conditions>
+            </modifier>
+          </modifiers>
+        </entryLink>
+        <entryLink id="lp-unlock" name="Unlockable Pod" type="selectionEntry" targetId="wpn-unlockpod" hidden="true">
+          <modifiers>
+            <modifier type="set" value="false" field="hidden">
+              <conditions>
+                <condition type="atLeast" value="1" field="selections" scope="parent" childId="wpn-rifle" id="cnd-3"/>
+              </conditions>
+            </modifier>
+          </modifiers>
+        </entryLink>
+        <entryLink id="lp-never" name="Never Pod" type="selectionEntry" targetId="wpn-neverpod" hidden="true"/>
+      </entryLinks>
+    </selectionEntryGroup>
+  </sharedSelectionEntryGroups>
 </catalogue>`
 
 function setup() {
@@ -229,6 +328,18 @@ describe('extractUnit', () => {
     const trooper = unit.models.find((m) => m.name === 'Test Trooper')!
     expect(trooper.weapons).toEqual([
       { weaponId: 'wpn-rifle', defaultCount: 1, max: 1 },
+      {
+        weaponId: 'wpn-squadpod',
+        defaultCount: 0,
+        max: 1,
+        choiceGroup: 'Pods',
+      },
+      {
+        weaponId: 'wpn-unlockpod',
+        defaultCount: 0,
+        max: 1,
+        choiceGroup: 'Pods',
+      },
     ])
     expect(unit.weapons['wpn-rifle'].profiles).toEqual([
       {
@@ -278,6 +389,13 @@ describe('extractUnit', () => {
     expect(unit.models[0]).toMatchObject({ name: 'Test Hero', min: 1, max: 1 })
     expect(unit.models[0].weapons).toEqual([
       { weaponId: 'wpn-fist', defaultCount: 1, max: 1 },
+      { weaponId: 'wpn-heropod', defaultCount: 0, max: 1, choiceGroup: 'Pods' },
+      {
+        weaponId: 'wpn-unlockpod',
+        defaultCount: 0,
+        max: 1,
+        choiceGroup: 'Pods',
+      },
     ])
   })
 
@@ -298,5 +416,37 @@ describe('extractUnit', () => {
   it('returns null for entries without a unit statline', () => {
     const { index } = setup()
     expect(extractUnit(index.resolve('wpn-rifle')!, index)).toBeNull()
+  })
+})
+
+describe('visibility', () => {
+  const weaponNames = (unitId: string) => {
+    const { index } = setup()
+    const unit = extractUnit(index.resolve(unitId)!, index)!
+    return Object.values(unit.weapons).map((w) => w.name)
+  }
+
+  it('hides options whose identity conditions exclude the unit', () => {
+    // visible by default, but "set hidden when notInstanceOf Hero"
+    expect(weaponNames('unit-hero')).toContain('Hero Pod')
+    expect(weaponNames('unit-squad')).not.toContain('Hero Pod')
+  })
+
+  it('reveals statically hidden options for matching units', () => {
+    // hidden by default, but "set hidden=false when instanceOf Infantry"
+    expect(weaponNames('unit-squad')).toContain('Squad Pod')
+    expect(weaponNames('unit-hero')).not.toContain('Squad Pod')
+  })
+
+  it('keeps selection-gated options visible (unknown conditions)', () => {
+    // revealed by an atLeast-selections condition we cannot evaluate:
+    // prefer listing it as a possible loadout
+    expect(weaponNames('unit-squad')).toContain('Unlockable Pod')
+    expect(weaponNames('unit-hero')).toContain('Unlockable Pod')
+  })
+
+  it('drops statically hidden options with no reveal', () => {
+    expect(weaponNames('unit-squad')).not.toContain('Never Pod')
+    expect(weaponNames('unit-hero')).not.toContain('Never Pod')
   })
 })
