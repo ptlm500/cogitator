@@ -9,7 +9,7 @@ import { useEditions, useFaction } from '@/data/hooks.ts'
 import type { Unit } from '@/data/types.ts'
 import { SegmentedControl } from '@/components/SegmentedControl.tsx'
 import {
-  defaultUnitSize,
+  defenseGroups,
   profileRows,
   runSimulation,
   type AttackMode,
@@ -28,8 +28,8 @@ function App() {
   const [pending, setPending] = useState({
     counts: initial.counts,
     skills: initial.skills,
-    statlineId: initial.statlineId,
-    models: initial.models,
+    modelCounts: initial.modelCounts,
+    legacyModels: initial.legacyModels,
   })
 
   const [attackerFaction, setAttackerFaction] = useState(
@@ -47,8 +47,8 @@ function App() {
   )
   const [defenderUnitId, setDefenderUnitId] = useState(initial.defenderUnitId)
   const [defenderCharId, setDefenderCharId] = useState(initial.defenderCharId)
-  const [statlineId, setStatlineId] = useState<string>()
-  const [models, setModels] = useState(1)
+  // model count per statline id of the defender unit
+  const [modelCounts, setModelCounts] = useState<Record<string, number>>({})
 
   const [context, setContext] = useState<AttackContext>(initial.context ?? {})
   const [overrides, setOverrides] = useState<DefenderOverrides>(
@@ -105,10 +105,24 @@ function App() {
   if (defender !== defenderFor) {
     setDefenderFor(defender)
     if (defender) {
-      setStatlineId(pending.statlineId ?? defender.statlines[0]?.id)
-      setModels(pending.models ?? defaultUnitSize(defender))
-      if (pending.statlineId !== undefined || pending.models !== undefined) {
-        setPending((p) => ({ ...p, statlineId: undefined, models: undefined }))
+      const groups = defenseGroups(defender)
+      const defaults = Object.fromEntries(
+        groups.map((g) => [g.id, g.defaultCount]),
+      )
+      const next = { ...defaults, ...pending.modelCounts }
+      if (pending.legacyModels !== undefined && groups[0]) {
+        next[groups[0].id] = pending.legacyModels
+      }
+      setModelCounts(next)
+      if (
+        pending.modelCounts !== undefined ||
+        pending.legacyModels !== undefined
+      ) {
+        setPending((p) => ({
+          ...p,
+          modelCounts: undefined,
+          legacyModels: undefined,
+        }))
       }
     }
   }
@@ -122,8 +136,7 @@ function App() {
       skills,
       {
         unit: defender,
-        statlineId: statlineId ?? '',
-        models,
+        modelCounts,
         attachedUnit: defenderChar,
         overrides,
       },
@@ -137,8 +150,7 @@ function App() {
     rows,
     counts,
     skills,
-    statlineId,
-    models,
+    modelCounts,
     overrides,
     context,
   ])
@@ -162,8 +174,7 @@ function App() {
       defenderFaction,
       defenderUnitId,
       defenderCharId,
-      statlineId,
-      models: defender ? models : undefined,
+      modelCounts: defender ? modelCounts : undefined,
       context,
       overrides,
     })
@@ -179,8 +190,7 @@ function App() {
     defenderFaction,
     defenderUnitId,
     defenderCharId,
-    statlineId,
-    models,
+    modelCounts,
     defender,
     context,
     overrides,
@@ -276,8 +286,7 @@ function App() {
           unit={defender}
           factionUnits={defenderData.data?.units ?? []}
           attached={defenderChar}
-          statlineId={statlineId}
-          models={models}
+          modelCounts={modelCounts}
           onFactionChange={(f) => {
             setDefenderFaction(f)
             setDefenderUnitId(undefined)
@@ -285,8 +294,9 @@ function App() {
           }}
           onUnitChange={setDefenderUnitId}
           onAttachedChange={setDefenderCharId}
-          onStatlineChange={setStatlineId}
-          onModelsChange={setModels}
+          onModelCountChange={(id, count) =>
+            setModelCounts((c) => ({ ...c, [id]: count }))
+          }
         />
       </div>
 

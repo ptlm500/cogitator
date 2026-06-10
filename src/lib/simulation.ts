@@ -3,6 +3,7 @@ import type {
   AttackContext,
   AttackResult,
   DefenderInput,
+  DefenderSegment,
   WeaponInput,
 } from '@/rules/types.ts'
 import { engines } from '@/rules/index.ts'
@@ -115,8 +116,8 @@ export interface DefenderOverrides {
 
 export interface DefenderConfig {
   unit: Unit
-  statlineId: string
-  models: number
+  /** Model count per statline id; segments take hits in statline order */
+  modelCounts: Record<string, number>
   /** A character attached to the unit (allocated to last) */
   attachedUnit?: Unit
   overrides?: DefenderOverrides
@@ -130,31 +131,102 @@ function override(
   return manual ?? fromData
 }
 
+/** A group of statlines with identical defensive characteristics; data
+ * sometimes repeats the same statline per model entry, so the defender UI
+ * and engine segments work on these merged groups. */
+export interface DefenseGroup {
+  /** First statline id of the group (stable key for state and URLs) */
+  id: string
+  name: string
+  T: number
+  SV: number
+  W: number
+  OC: number
+  max: number
+  defaultCount: number
+}
+
+export function defenseGroups(unit: Unit): DefenseGroup[] {
+  const modelDefaults = defaultModelCounts(unit)
+  const byKey = new Map<string, DefenseGroup & { ids: Set<string> }>()
+  for (const s of unit.statlines) {
+    const key = `${s.T}|${s.SV}|${s.W}`
+    let group = byKey.get(key)
+    if (!group) {
+      group = {
+        id: s.id,
+        name: s.name,
+        T: s.T,
+        SV: s.SV,
+        W: s.W,
+        OC: s.OC,
+        max: 0,
+        defaultCount: 0,
+        ids: new Set(),
+      }
+      byKey.set(key, group)
+    }
+    group.ids.add(s.id)
+  }
+  const groups = [...byKey.values()]
+  for (const m of unit.models) {
+    const group = groups.find((g) => g.ids.has(m.statlineId))
+    if (group) {
+      group.max += m.max
+      group.defaultCount += modelDefaults[m.id]
+    }
+  }
+  const total = groups.reduce((sum, g) => sum + g.defaultCount, 0)
+  if (total === 0 && groups[0]) groups[0].defaultCount = 1
+  for (const g of groups) g.max = Math.max(g.max, g.defaultCount, 1)
+  return groups.map((g) => {
+    const { ids, ...rest } = g
+    void ids
+    return rest
+  })
+}
+
 export function toDefenderInput(config: DefenderConfig): DefenderInput {
-  const stat =
-    config.unit.statlines.find((s) => s.id === config.statlineId) ??
-    config.unit.statlines[0]
   const overrides = config.overrides ?? {}
+  const groups = defenseGroups(config.unit)
+  const segments: DefenderSegment[] = groups
+    .filter((g) => (config.modelCounts[g.id] ?? 0) > 0)
+    .map((g) => ({
+      models: config.modelCounts[g.id],
+      toughness: g.T,
+      save: g.SV,
+      wounds: Math.max(1, g.W),
+      invuln: override(overrides.invuln, config.unit.invuln),
+      feelNoPain: override(overrides.feelNoPain, config.unit.feelNoPain),
+    }))
+  if (segments.length === 0 && groups[0]) {
+    const g = groups[0]
+    segments.push({
+      models: 1,
+      toughness: g.T,
+      save: g.SV,
+      wounds: Math.max(1, g.W),
+      invuln: override(overrides.invuln, config.unit.invuln),
+      feelNoPain: override(overrides.feelNoPain, config.unit.feelNoPain),
+    })
+  }
   const input: DefenderInput = {
-    toughness: stat.T,
-    save: stat.SV,
-    wounds: Math.max(1, stat.W),
-    models: Math.max(1, config.models),
-    invuln: override(overrides.invuln, config.unit.invuln),
-    feelNoPain: override(overrides.feelNoPain, config.unit.feelNoPain),
+    segments,
     damageReduction: overrides.damageReduction ? 1 : 0,
     keywords: config.unit.keywords,
   }
   const char = config.attachedUnit
   const charStat = char?.statlines[0]
   if (char && charStat) {
-    input.attached = {
+    segments.push({
+      models: 1,
       toughness: charStat.T,
       save: charStat.SV,
       wounds: Math.max(1, charStat.W),
       invuln: override(overrides.invuln, char.invuln),
       feelNoPain: override(overrides.feelNoPain, char.feelNoPain),
-    }
+    })
+    input.attachedLast = true
     // Anti-X matches against the combined unit's keywords
     input.keywords = [...new Set([...config.unit.keywords, ...char.keywords])]
   }

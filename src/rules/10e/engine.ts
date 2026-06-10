@@ -74,13 +74,23 @@ export function woundTarget(strength: number, toughness: number): number {
 }
 
 /**
- * Toughness used for wound rolls: the majority of models in the unit,
- * the highest value on a tie (an attached character counts as one model).
+ * Toughness used for wound rolls: the value shared by the majority of
+ * models in the unit, the highest value on a tie.
  */
 export function effectiveToughness(defender: DefenderInput): number {
-  if (!defender.attached) return defender.toughness
-  if (defender.models > 1) return defender.toughness
-  return Math.max(defender.toughness, defender.attached.toughness)
+  const counts = new Map<number, number>()
+  for (const s of defender.segments) {
+    counts.set(s.toughness, (counts.get(s.toughness) ?? 0) + s.models)
+  }
+  let best = 0
+  let bestCount = 0
+  for (const [toughness, count] of counts) {
+    if (count > bestCount || (count === bestCount && toughness > best)) {
+      best = toughness
+      bestCount = count
+    }
+  }
+  return best
 }
 
 /** Probability a savable wound gets past armour/invuln (1 = no save) */
@@ -104,6 +114,43 @@ export function failSaveProb(
   return 1 - (7 - needed) / 6
 }
 
+// --- defender layout ---------------------------------------------------------
+
+/** Per-model-slot view of the segments: slot i is the model that takes
+ * damage once i models are dead. */
+interface DefenderLayout {
+  total: number
+  /** segment index per model slot */
+  segOf: number[]
+  /** wounds characteristic per model slot */
+  wounds: number[]
+  /** total wounds in slots before slot i (effective-damage offset) */
+  cumWounds: number[]
+  /** model slots that are not the attached character */
+  bodyguards: number
+}
+
+function layout(defender: DefenderInput): DefenderLayout {
+  const segOf: number[] = []
+  const wounds: number[] = []
+  defender.segments.forEach((seg, i) => {
+    for (let m = 0; m < seg.models; m++) {
+      segOf.push(i)
+      wounds.push(Math.max(1, seg.wounds))
+    }
+  })
+  const cumWounds = [0]
+  for (const w of wounds) cumWounds.push(cumWounds[cumWounds.length - 1] + w)
+  const total = wounds.length
+  return {
+    total,
+    segOf,
+    wounds,
+    cumWounds,
+    bodyguards: defender.attachedLast ? total - 1 : total,
+  }
+}
+
 // --- per-attack-die resolution ----------------------------------------------
 
 /** One possible outcome of an attack die: how many wounds reached the save
@@ -114,14 +161,18 @@ interface WoundBranch {
   unsavable: number
 }
 
+interface SegmentSpec {
+  fail: number
+  damage: Dist
+}
+
 interface WeaponResolution {
   /** Total attack dice across all weapons with this profile */
   attacks: Dist
   /** Wound outcomes of one attack die */
   perDie: WoundBranch[]
   /** Save-failure probability and post-FNP damage per defender segment */
-  bodyguard: { fail: number; damage: Dist }
-  character?: { fail: number; damage: Dist }
+  specs: SegmentSpec[]
   expectedPerDie: { hits: number; wounds: number; unsaved: number }
 }
 
@@ -194,7 +245,7 @@ function resolveWeapon(
   // attacks per weapon
   let attacksPerWeapon = parseDice(profile.attacks)
   if (kw.blast) {
-    const models = defender.models + (defender.attached ? 1 : 0)
+    const models = defender.segments.reduce((sum, s) => sum + s.models, 0)
     const bonus = Math.floor(models / 5)
     if (bonus > 0) attacksPerWeapon = convolve(attacksPerWeapon, certain(bonus))
   }
@@ -284,25 +335,10 @@ function resolveWeapon(
     baseDamage = convolve(baseDamage, kw.melta)
   }
   const reduction = defender.damageReduction ?? 0
-  const bodyguard = {
-    fail: failSaveProb(defender.save, defender.invuln, profile.ap, saveOptions),
-    damage: foldDefences(baseDamage, reduction, defender.feelNoPain),
-  }
-  const character = defender.attached
-    ? {
-        fail: failSaveProb(
-          defender.attached.save,
-          defender.attached.invuln,
-          profile.ap,
-          saveOptions,
-        ),
-        damage: foldDefences(
-          baseDamage,
-          reduction,
-          defender.attached.feelNoPain,
-        ),
-      }
-    : undefined
+  const specs = defender.segments.map((seg) => ({
+    fail: failSaveProb(seg.save, seg.invuln, profile.ap, saveOptions),
+    damage: foldDefences(baseDamage, reduction, seg.feelNoPain),
+  }))
 
   // reporting expectations
   const eSustained = expectation(sustained)
@@ -313,13 +349,12 @@ function resolveWeapon(
   return {
     attacks,
     perDie,
-    bodyguard,
-    character,
+    specs,
     expectedPerDie: {
       hits: eHits,
       wounds: eSavable + eUnsavable,
-      // reported with the bodyguard save; allocation handles the exact mix
-      unsaved: eSavable * bodyguard.fail + eUnsavable,
+      // reported with the first segment's save; allocation is exact
+      unsaved: eSavable * (specs[0]?.fail ?? 1) + eUnsavable,
     },
   }
 }
@@ -327,35 +362,28 @@ function resolveWeapon(
 // --- damage allocation ------------------------------------------------------
 
 /**
- * Distribution over the defender's state: `live[slain][w]` is the
- * probability that `slain` bodyguard models are dead and the current model
- * has `w` wounds remaining; `char[w]` (when a character is attached) the
- * probability all bodyguards are dead and the character has `w` wounds
- * left; `dead` the probability everything is dead.
+ * Distribution over the defender's state: `live[i][w]` is the probability
+ * that `i` models are dead and the model currently taking damage has `w`
+ * wounds remaining; `dead` the probability everything is dead.
  */
 export interface AllocationState {
   live: number[][]
-  char: number[]
   dead: number
 }
 
 export function initialState(defender: DefenderInput): AllocationState {
-  const live = Array.from({ length: defender.models }, () =>
-    new Array<number>(defender.wounds + 1).fill(0),
+  const flat = layout(defender)
+  const live = Array.from({ length: flat.total }, (_, i) =>
+    new Array<number>(flat.wounds[i] + 1).fill(0),
   )
-  live[0][defender.wounds] = 1
-  return {
-    live,
-    char: new Array<number>((defender.attached?.wounds ?? 0) + 1).fill(0),
-    dead: 0,
-  }
+  live[0][flat.wounds[0]] = 1
+  return { live, dead: 0 }
 }
 
-const zeroState = (defender: DefenderInput): AllocationState => ({
-  live: Array.from({ length: defender.models }, () =>
-    new Array<number>(defender.wounds + 1).fill(0),
+const zeroState = (flat: DefenderLayout): AllocationState => ({
+  live: Array.from({ length: flat.total }, (_, i) =>
+    new Array<number>(flat.wounds[i] + 1).fill(0),
   ),
-  char: new Array<number>((defender.attached?.wounds ?? 0) + 1).fill(0),
   dead: 0,
 })
 
@@ -371,72 +399,39 @@ function scaleAdd(
       acc.live[i][j] += weight * state.live[i][j]
     }
   }
-  for (let j = 0; j < state.char.length; j++) {
-    acc.char[j] += weight * state.char[j]
-  }
 }
 
-interface SegmentSpec {
-  fail: number
-  damage: Dist
-}
-
-/** Apply a single wound to the state; `savable` wounds roll the segment's
- * save first, Devastating Wounds skip it. */
+/** Apply a single wound to the state; `savable` wounds roll the current
+ * model's save first, Devastating Wounds skip it. */
 function applyOneWound(
   state: AllocationState,
-  defender: DefenderInput,
-  bodyguard: SegmentSpec,
-  character: SegmentSpec | undefined,
+  flat: DefenderLayout,
+  specs: SegmentSpec[],
   savable: boolean,
 ): AllocationState {
-  const { wounds: W, models: M } = defender
-  const charW = defender.attached?.wounds ?? 0
-  const next = zeroState(defender)
+  const next = zeroState(flat)
   next.dead = state.dead
-
-  const qB = savable ? bodyguard.fail : 1
-  for (let slain = 0; slain < M; slain++) {
-    for (let w = 1; w <= W; w++) {
-      const p = state.live[slain][w]
+  for (let i = 0; i < flat.total; i++) {
+    const spec = specs[flat.segOf[i]]
+    const q = savable ? spec.fail : 1
+    for (let w = 1; w <= flat.wounds[i]; w++) {
+      const p = state.live[i][w]
       if (p === 0) continue
-      if (qB < 1) next.live[slain][w] += p * (1 - qB)
-      const pTaken = p * qB
+      if (q < 1) next.live[i][w] += p * (1 - q)
+      const pTaken = p * q
       if (pTaken === 0) continue
-      for (let d = 0; d < bodyguard.damage.length; d++) {
-        const pd = bodyguard.damage[d]
+      for (let d = 0; d < spec.damage.length; d++) {
+        const pd = spec.damage[d]
         if (pd === 0) continue
         if (d === 0) {
-          next.live[slain][w] += pTaken * pd
+          next.live[i][w] += pTaken * pd
         } else if (d >= w) {
           // model dies; excess damage is lost (no spillover)
-          if (slain + 1 === M) {
-            if (character) next.char[charW] += pTaken * pd
-            else next.dead += pTaken * pd
-          } else {
-            next.live[slain + 1][W] += pTaken * pd
-          }
+          if (i + 1 === flat.total) next.dead += pTaken * pd
+          else next.live[i + 1][flat.wounds[i + 1]] += pTaken * pd
         } else {
-          next.live[slain][w - d] += pTaken * pd
+          next.live[i][w - d] += pTaken * pd
         }
-      }
-    }
-  }
-
-  if (character) {
-    const qC = savable ? character.fail : 1
-    for (let w = 1; w <= charW; w++) {
-      const p = state.char[w]
-      if (p === 0) continue
-      if (qC < 1) next.char[w] += p * (1 - qC)
-      const pTaken = p * qC
-      if (pTaken === 0) continue
-      for (let d = 0; d < character.damage.length; d++) {
-        const pd = character.damage[d]
-        if (pd === 0) continue
-        if (d === 0) next.char[w] += pTaken * pd
-        else if (d >= w) next.dead += pTaken * pd
-        else next.char[w - d] += pTaken * pd
       }
     }
   }
@@ -446,18 +441,18 @@ function applyOneWound(
 /** Apply one attack die's wound branches to the state */
 function applyDie(
   state: AllocationState,
-  defender: DefenderInput,
+  flat: DefenderLayout,
   r: WeaponResolution,
 ): AllocationState {
-  const acc = zeroState(defender)
+  const acc = zeroState(flat)
   for (const branch of r.perDie) {
     if (branch.p === 0) continue
     let cur = state
     for (let i = 0; i < branch.savable; i++) {
-      cur = applyOneWound(cur, defender, r.bodyguard, r.character, true)
+      cur = applyOneWound(cur, flat, r.specs, true)
     }
     for (let i = 0; i < branch.unsavable; i++) {
-      cur = applyOneWound(cur, defender, r.bodyguard, r.character, false)
+      cur = applyOneWound(cur, flat, r.specs, false)
     }
     scaleAdd(acc, cur, branch.p)
   }
@@ -471,18 +466,13 @@ export function applyWounds(
   damage: Dist,
   defender: DefenderInput,
 ): AllocationState {
-  const spec = { fail: 1, damage }
-  const acc = zeroState(defender)
+  const flat = layout(defender)
+  const specs = defender.segments.map(() => ({ fail: 1, damage }))
+  const acc = zeroState(flat)
   scaleAdd(acc, state, count[0] ?? 0)
   let cur = state
   for (let n = 1; n < count.length; n++) {
-    cur = applyOneWound(
-      cur,
-      defender,
-      spec,
-      defender.attached ? spec : undefined,
-      false,
-    )
+    cur = applyOneWound(cur, flat, specs, false)
     scaleAdd(acc, cur, count[n])
   }
   return acc
@@ -495,6 +485,7 @@ export function resolveAttacks(
   defender: DefenderInput,
   context: AttackContext = {},
 ): AttackResult {
+  const flat = layout(defender)
   let state = initialState(defender)
   const expected = { attacks: 0, hits: 0, wounds: 0, unsaved: 0 }
 
@@ -508,37 +499,31 @@ export function resolveAttacks(
     expected.wounds += eAttacks * r.expectedPerDie.wounds
     expected.unsaved += eAttacks * r.expectedPerDie.unsaved
 
-    const acc = zeroState(defender)
+    const acc = zeroState(flat)
     scaleAdd(acc, state, r.attacks[0] ?? 0)
     let cur = state
     for (let n = 1; n < r.attacks.length; n++) {
-      cur = applyDie(cur, defender, r)
+      cur = applyDie(cur, flat, r)
       scaleAdd(acc, cur, r.attacks[n])
     }
     state = acc
   }
 
   // marginals
-  const { wounds: W, models: M } = defender
-  const charW = defender.attached?.wounds ?? 0
-  const slain = new Array<number>(M + 1).fill(0)
-  const damage = new Array<number>(M * W + charW + 1).fill(0)
-  for (let k = 0; k < M; k++) {
-    for (let w = 1; w <= W; w++) {
-      const p = state.live[k][w]
+  const slain = new Array<number>(flat.bodyguards + 1).fill(0)
+  const totalWounds = flat.cumWounds[flat.total]
+  const damage = new Array<number>(totalWounds + 1).fill(0)
+  for (let i = 0; i < flat.total; i++) {
+    const slainBucket = Math.min(i, flat.bodyguards)
+    for (let w = 1; w <= flat.wounds[i]; w++) {
+      const p = state.live[i][w]
       if (p === 0) continue
-      slain[k] += p
-      damage[k * W + (W - w)] += p
+      slain[slainBucket] += p
+      damage[flat.cumWounds[i] + (flat.wounds[i] - w)] += p
     }
   }
-  for (let w = 1; w <= charW; w++) {
-    const p = state.char[w]
-    if (p === 0) continue
-    slain[M] += p
-    damage[M * W + (charW - w)] += p
-  }
-  slain[M] += state.dead
-  damage[M * W + charW] += state.dead
+  slain[flat.bodyguards] += state.dead
+  damage[totalWounds] += state.dead
 
   const slainDist = trim(slain)
   const damageDist = trim(damage)
@@ -552,7 +537,7 @@ export function resolveAttacks(
     damage: damageDist,
     unitKilled: state.dead,
   }
-  if (defender.attached) result.attachedSlain = state.dead
+  if (defender.attachedLast) result.attachedSlain = state.dead
   return result
 }
 

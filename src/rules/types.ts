@@ -23,10 +23,11 @@ export interface WeaponInput {
   count: number
 }
 
-/** A leader attached to the defending unit. Attacks are allocated to the
- * bodyguard models first; the character only takes hits once they are dead. */
-export interface AttachedCharacter {
+/** A group of identical models within the defending unit */
+export interface DefenderSegment {
+  models: number
   toughness: number
+  /** Armour save (2-6); 7+ = no save */
   save: number
   invuln?: number
   wounds: number
@@ -34,18 +35,19 @@ export interface AttachedCharacter {
 }
 
 export interface DefenderInput {
-  toughness: number
-  /** Armour save (2-6); 7+ = no save */
-  save: number
-  invuln?: number
-  wounds: number
-  models: number
-  feelNoPain?: number
+  /**
+   * Model groups in allocation order: earlier segments take hits first.
+   * Wound rolls use the majority Toughness across all segments (highest
+   * on a tie); each segment rolls its own saves and Feel No Pain.
+   */
+  segments: DefenderSegment[]
+  /** The final segment is an attached character (10e Leader rules):
+   * reported separately and excluded from the models-slain distribution */
+  attachedLast?: boolean
   /** Reduce each attack's damage by this amount (min 1) */
   damageReduction?: number
   /** Unit keywords, used by Anti-X weapons */
   keywords?: string[]
-  attached?: AttachedCharacter
 }
 
 export type RerollMode = 'none' | 'ones' | 'fails'

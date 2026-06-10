@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { certain } from './dist.ts'
 import {
   applyWounds,
+  effectiveToughness,
   failSaveProb,
   initialState,
   resolveAttacks,
@@ -21,13 +22,51 @@ const ranged = (over: Partial<WeaponProfileInput>): WeaponProfileInput => ({
   ...over,
 })
 
-const defender = (over: Partial<DefenderInput>): DefenderInput => ({
-  toughness: 4,
-  save: 3,
-  wounds: 2,
-  models: 5,
-  ...over,
-})
+interface DefenderShorthand {
+  toughness?: number
+  save?: number
+  wounds?: number
+  models?: number
+  invuln?: number
+  feelNoPain?: number
+  damageReduction?: number
+  keywords?: string[]
+  attached?: {
+    toughness: number
+    save: number
+    wounds: number
+    invuln?: number
+    feelNoPain?: number
+  }
+}
+
+/** Single-segment defender (plus optional attached character) */
+const defender = (over: DefenderShorthand): DefenderInput => {
+  const segments = [
+    {
+      models: over.models ?? 5,
+      toughness: over.toughness ?? 4,
+      save: over.save ?? 3,
+      wounds: over.wounds ?? 2,
+      invuln: over.invuln,
+      feelNoPain: over.feelNoPain,
+    },
+  ]
+  if (over.attached) {
+    segments.push({
+      models: 1,
+      invuln: undefined,
+      feelNoPain: undefined,
+      ...over.attached,
+    })
+  }
+  return {
+    segments,
+    attachedLast: over.attached ? true : undefined,
+    damageReduction: over.damageReduction,
+    keywords: over.keywords,
+  }
+}
 
 describe('woundTarget', () => {
   it('implements the strength vs toughness table', () => {
@@ -457,6 +496,94 @@ describe('attached characters', () => {
       defender({}),
     )
     expect(r.attachedSlain).toBeUndefined()
+  })
+})
+
+describe('mixed statlines', () => {
+  it('each segment rolls its own save as allocation reaches it', () => {
+    // 2 auto-hits, S8 v T4 (2+, p=5/6 each), AP-2.
+    // Segment 1: one W1 model with no effective save (Sv6).
+    // Segment 2: one W1 model saving on 4+ (Sv2 + AP-2).
+    const r = resolveAttacks(
+      [
+        {
+          profile: ranged({
+            attacks: '2',
+            strength: 8,
+            ap: 2,
+            keywords: ['Torrent'],
+          }),
+          count: 1,
+        },
+      ],
+      {
+        segments: [
+          { models: 1, toughness: 4, save: 6, wounds: 1 },
+          { models: 1, toughness: 4, save: 2, wounds: 1 },
+        ],
+      },
+    )
+    expect(r.slain[1] + r.slain[2]).toBeCloseTo(1 - 1 / 36, 12)
+    expect(r.unitKilled).toBeCloseTo((25 / 36) * (1 / 2), 12)
+    // no attached character: nothing reported as one
+    expect(r.attachedSlain).toBeUndefined()
+  })
+
+  it('tracks different wounds characteristics across segments', () => {
+    // two flat-3-damage wounds into a W1 model then a W3 model
+    const def: DefenderInput = {
+      segments: [
+        { models: 1, toughness: 4, save: 7, wounds: 1 },
+        { models: 1, toughness: 4, save: 7, wounds: 3 },
+      ],
+    }
+    const state = applyWounds(initialState(def), certain(2), certain(3), def)
+    expect(state.dead).toBeCloseTo(1, 12)
+  })
+
+  it('per-segment feel no pain', () => {
+    // 1 auto-hit guaranteed wound-ish: S8 v T4 wound 2+, no saves;
+    // first segment has FNP 4+, so expected damage halves on it
+    const r = resolveAttacks(
+      [
+        {
+          profile: ranged({
+            attacks: '1',
+            strength: 8,
+            ap: 2,
+            keywords: ['Torrent'],
+          }),
+          count: 1,
+        },
+      ],
+      {
+        segments: [
+          { models: 1, toughness: 4, save: 6, wounds: 5, feelNoPain: 4 },
+          { models: 1, toughness: 4, save: 6, wounds: 5 },
+        ],
+      },
+    )
+    // E[damage] = P(wound) * 1 * P(fnp fails) = 5/6 * 1/2
+    expect(r.expected.damage).toBeCloseTo((5 / 6) * (1 / 2), 9)
+  })
+
+  it('majority toughness across segments', () => {
+    expect(
+      effectiveToughness({
+        segments: [
+          { models: 3, toughness: 3, save: 5, wounds: 1 },
+          { models: 2, toughness: 6, save: 3, wounds: 3 },
+        ],
+      }),
+    ).toBe(3)
+    expect(
+      effectiveToughness({
+        segments: [
+          { models: 2, toughness: 3, save: 5, wounds: 1 },
+          { models: 2, toughness: 6, save: 3, wounds: 3 },
+        ],
+      }),
+    ).toBe(6)
   })
 })
 

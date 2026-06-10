@@ -191,13 +191,17 @@ describe('profileRows', () => {
 
 describe('toDefenderInput', () => {
   it('maps statline and unit traits', () => {
-    expect(toDefenderInput({ unit, statlineId: 's1', models: 5 })).toEqual({
-      toughness: 4,
-      save: 3,
-      wounds: 2,
-      models: 5,
-      invuln: 5,
-      feelNoPain: undefined,
+    expect(toDefenderInput({ unit, modelCounts: { s1: 5 } })).toEqual({
+      segments: [
+        {
+          models: 5,
+          toughness: 4,
+          save: 3,
+          wounds: 2,
+          invuln: 5,
+          feelNoPain: undefined,
+        },
+      ],
       damageReduction: 0,
       keywords: ['Infantry'],
     })
@@ -226,11 +230,12 @@ describe('toDefenderInput', () => {
     }
     const input = toDefenderInput({
       unit,
-      statlineId: 's1',
-      models: 5,
+      modelCounts: { s1: 5 },
       attachedUnit: char,
     })
-    expect(input.attached).toEqual({
+    expect(input.attachedLast).toBe(true)
+    expect(input.segments[1]).toEqual({
+      models: 1,
       toughness: 5,
       save: 2,
       wounds: 5,
@@ -240,15 +245,37 @@ describe('toDefenderInput', () => {
     expect(input.keywords).toEqual(['Infantry', 'Character', 'Hero'])
   })
 
-  it('applies manual overrides over data values', () => {
+  it('builds one segment per populated statline', () => {
+    const mixed: Unit = {
+      ...unit,
+      statlines: [
+        ...unit.statlines,
+        { id: 's2', name: 'Big', M: '6"', T: 6, SV: 2, W: 4, LD: '6+', OC: 2 },
+      ],
+    }
+    const input = toDefenderInput({
+      unit: mixed,
+      modelCounts: { s1: 4, s2: 2 },
+    })
     expect(
-      toDefenderInput({
-        unit,
-        statlineId: 's1',
-        models: 5,
-        overrides: { invuln: 'none', feelNoPain: 5, damageReduction: true },
-      }),
-    ).toMatchObject({ invuln: undefined, feelNoPain: 5, damageReduction: 1 })
+      input.segments.map((s) => [s.models, s.toughness, s.wounds]),
+    ).toEqual([
+      [4, 4, 2],
+      [2, 6, 4],
+    ])
+  })
+
+  it('applies manual overrides over data values', () => {
+    const input = toDefenderInput({
+      unit,
+      modelCounts: { s1: 5 },
+      overrides: { invuln: 'none', feelNoPain: 5, damageReduction: true },
+    })
+    expect(input.segments[0]).toMatchObject({
+      invuln: undefined,
+      feelNoPain: 5,
+    })
+    expect(input.damageReduction).toBe(1)
   })
 })
 
@@ -261,7 +288,7 @@ describe('runSimulation', () => {
       rows,
       counts,
       {},
-      { unit, statlineId: 's1', models: 5 },
+      { unit, modelCounts: { s1: 5 } },
       {},
     )
     // 9 rifles (18 shots) + 1 pistol (1 shot)
@@ -273,7 +300,7 @@ describe('runSimulation', () => {
     const rows = profileRows(unit, 'shooting')
     const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
     const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
-    const defender = { unit, statlineId: 's1', models: 5 }
+    const defender = { unit, modelCounts: { s1: 5 } }
     const base = runSimulation('10e', rows, counts, {}, defender, {})!
     // 3+ -> 2+ improves hits on the 18 rifle shots but not the pistol
     const buffed = runSimulation(
@@ -292,7 +319,7 @@ describe('runSimulation', () => {
     const rows = profileRows(unit, 'shooting')
     const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
     const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
-    const defender = { unit, statlineId: 's1', models: 5 }
+    const defender = { unit, modelCounts: { s1: 5 } }
     const result = runSimulation(
       '10e',
       rows,
@@ -314,7 +341,7 @@ describe('runSimulation', () => {
         rows,
         counts,
         {},
-        { unit, statlineId: 's1', models: 5 },
+        { unit, modelCounts: { s1: 5 } },
         {},
       ),
     ).toBeUndefined()

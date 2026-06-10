@@ -13,8 +13,7 @@ describe('urlState', () => {
       defenderFaction: 'chaos-death-guard.json',
       defenderUnitId: 'def-456',
       defenderCharId: 'char-2',
-      statlineId: 'stat-1',
-      models: 7,
+      modelCounts: { 'stat-1': 7, 'stat-2': 2 },
       context: {
         halfRange: true,
         inCover: true,
@@ -38,6 +37,12 @@ describe('urlState', () => {
     expect(serializeState(state)).not.toContain('m=')
   })
 
+  it('reads a plain-number dm as legacy total models', () => {
+    const s = parseState('du=u1&dm=10')
+    expect(s.legacyModels).toBe(10)
+    expect(s.modelCounts).toBeUndefined()
+  })
+
   it('parses an empty hash to an empty state', () => {
     expect(parseState('')).toEqual({})
     expect(parseState('#')).toEqual({})
@@ -46,6 +51,7 @@ describe('urlState', () => {
   it('ignores malformed numeric values', () => {
     const s = parseState('hm=7&dm=xyz&ch=4')
     expect(s.context).toBeUndefined()
-    expect(s.models).toBeUndefined()
+    expect(s.modelCounts).toBeUndefined()
+    expect(s.legacyModels).toBeUndefined()
   })
 })

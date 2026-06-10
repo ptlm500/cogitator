@@ -16,8 +16,10 @@ export interface SharedState {
   defenderFaction?: string
   defenderUnitId?: string
   defenderCharId?: string
-  statlineId?: string
-  models?: number
+  /** Model count per statline id */
+  modelCounts?: Record<string, number>
+  /** Total model count from pre-mixed-statline URLs */
+  legacyModels?: number
   context?: AttackContext
   overrides?: DefenderOverrides
 }
@@ -58,8 +60,10 @@ export function serializeState(state: SharedState): string {
   set('df', state.defenderFaction)
   set('du', state.defenderUnitId)
   set('dc', state.defenderCharId)
-  set('ds', state.statlineId)
-  set('dm', state.models)
+  const modelCounts = Object.entries(state.modelCounts ?? {})
+  if (modelCounts.length > 0) {
+    set('dm', modelCounts.map(([k, v]) => `${k}:${v}`).join(','))
+  }
 
   const ctx = state.context ?? {}
   const flags = SITUATION_FLAGS.filter(([k]) => ctx[k])
@@ -106,9 +110,12 @@ export function parseState(hash: string): SharedState {
   state.defenderFaction = get('df')
   state.defenderUnitId = get('du')
   state.defenderCharId = get('dc')
-  state.statlineId = get('ds')
   const dm = p.get('dm')
-  if (dm !== null && Number.isFinite(Number(dm))) state.models = Number(dm)
+  if (dm !== null && dm.includes(':')) {
+    state.modelCounts = parseKeyedNumbers(dm)
+  } else if (dm !== null && Number.isFinite(Number(dm))) {
+    state.legacyModels = Number(dm)
+  }
 
   const context: AttackContext = {}
   const sit = p.get('sit') ?? ''

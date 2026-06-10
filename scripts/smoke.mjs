@@ -127,6 +127,30 @@ if (restoredHits !== buffedFinal) {
 console.log('URL restore works')
 await page.screenshot({ path: '/tmp/cogitator-smoke.png', fullPage: true })
 
+// mixed-statline defenders render one count row per defense group
+await fresh.getByLabel('Faction').nth(1).click()
+await fresh
+  .getByRole('option', { name: 'Chaos - Chaos Daemons', exact: true })
+  .click()
+await fresh.getByLabel('Unit').nth(1).click()
+await fresh
+  .getByRole('option', { name: 'Accursed Cultists', exact: true })
+  .click()
+await fresh.getByText('Torment', { exact: true }).waitFor({ timeout: 5000 })
+await fresh.getByText('Mutant', { exact: true }).waitFor()
+const mixedSlain = await stat(fresh, 'Slain')
+// removing the tougher W3 Torments leaves only W1 Mutants: more models die
+const decTorment = fresh.getByLabel('Decrease Torment models')
+while (await decTorment.isEnabled()) await decTorment.click()
+await fresh.waitForTimeout(200)
+const mixedSlain2 = await stat(fresh, 'Slain')
+if (Number(mixedSlain2) <= Number(mixedSlain)) {
+  throw new Error(
+    `removing W3 group did not raise slain: ${mixedSlain} -> ${mixedSlain2}`,
+  )
+}
+console.log(`mixed statlines work: slain ${mixedSlain} -> ${mixedSlain2}`)
+
 // mobile viewport render check
 const mobile = await newPage({ width: 375, height: 800 })
 await mobile.goto(shareUrl, { waitUntil: 'domcontentloaded' })
