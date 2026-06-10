@@ -77,6 +77,9 @@ Edition is a first-class dimension throughout:
 - rules: `src/rules/10e/` and `src/rules/11e/` implementing a shared `RulesEngine` interface
 - UI: edition switcher once 11e data exists
 
+The detailed 11e implementation plan (new save/allocation system, defender
+group ordering, edition-aware UI) lives in [PLAN-11E.md](PLAN-11E.md).
+
 ## Phases
 
 1. **Scaffold** — Vite + React + TS, Tailwind + shadcn init + scificn registry/globals,
