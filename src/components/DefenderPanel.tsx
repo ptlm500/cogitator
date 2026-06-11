@@ -170,11 +170,11 @@ export function DefenderPanel({
     <button
       type="button"
       onClick={() => setTuneEditor(tuneEditor === g.id ? null : g.id)}
-      aria-label={`Tune ${g.name}`}
+      aria-label={`Modify ${g.name}`}
       aria-expanded={tuneEditor === g.id}
       className="mt-1 border border-[var(--border)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--text-muted)] hover:text-[var(--color-green)]"
     >
-      {tuneEditor === g.id ? '− tune' : '+ tune'}
+      {tuneEditor === g.id ? '− modify' : '+ modify'}
     </button>
   )
 

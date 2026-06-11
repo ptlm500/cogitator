@@ -206,11 +206,11 @@ export function AttackerPanel({
                           onClick={() =>
                             setAbilityEditor(editing ? null : row.key)
                           }
-                          aria-label={`Edit ${row.profile.name} abilities`}
+                          aria-label={`Modify ${row.profile.name}`}
                           aria-expanded={editing}
                           className="mt-1 border border-[var(--border)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--text-muted)] hover:text-[var(--color-green)]"
                         >
-                          {editing ? '− tune' : '+ tune'}
+                          {editing ? '− modify' : '+ modify'}
                         </button>
                         {editing && (
                           <>

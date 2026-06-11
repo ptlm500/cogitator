@@ -74,7 +74,7 @@ console.log(`override works: damage ${dmgBefore} -> ${dmgAfter}`)
 
 // defender stat tuning: dropping T6 -> T4 makes S4 wound on 4s
 const wTuneBefore = await stat(page, 'Wounds')
-await page.getByLabel('Tune Plague Marine', { exact: true }).click()
+await page.getByLabel('Modify Plague Marine', { exact: true }).click()
 await page.getByLabel('Decrease Plague Marine toughness').click()
 await page.getByLabel('Decrease Plague Marine toughness').click()
 await page.waitForTimeout(200)
@@ -86,7 +86,7 @@ if (Number(wTuneAfter) <= Number(wTuneBefore)) {
 }
 await page.getByLabel('Increase Plague Marine toughness').click()
 await page.getByLabel('Increase Plague Marine toughness').click()
-await page.getByLabel('Tune Plague Marine', { exact: true }).click()
+await page.getByLabel('Modify Plague Marine', { exact: true }).click()
 console.log(`defender tune works: wounds ${wTuneBefore} -> ${wTuneAfter}`)
 
 // attaching a character to the attacker adds its weapons
@@ -113,7 +113,7 @@ await page
 console.log('defender character works')
 
 // per-profile tuning lives in the expandable editor
-await page.getByLabel('Edit Bolt Rifle abilities').click()
+await page.getByLabel('Modify Bolt Rifle', { exact: true }).click()
 
 // +1 attack on the rifles adds one attack per weapon
 const atkBefore = await stat(page, 'Attacks')
@@ -183,7 +183,7 @@ if (Number(hitsAfterSkill) >= Number(hitsBeforeSkill)) {
 console.log(
   `skill override works: hits ${hitsBeforeSkill} -> ${hitsAfterSkill}`,
 )
-await page.getByLabel('Edit Bolt Rifle abilities').click()
+await page.getByLabel('Modify Bolt Rifle', { exact: true }).click()
 const buffedFinal = hitsAfterSkill
 
 // the URL must restore the whole state in a fresh page
