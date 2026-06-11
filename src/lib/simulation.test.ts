@@ -192,6 +192,50 @@ describe('unit sizes', () => {
     expect(plasma(big).maxCount).toBe(2)
   })
 
+  it('drops pools whose rows cannot reach the budget', () => {
+    // the rifle is also carried by the sergeant (outside the pool), so the
+    // pool's only row is the special weapon (max 2) — a 9-model budget that
+    // nothing can spend must not surface
+    const phantom: Unit = {
+      ...sizedUnit,
+      models: sizedUnit.models.map((m) =>
+        m.id === 'sgt'
+          ? {
+              ...m,
+              weapons: [
+                ...m.weapons,
+                { weaponId: 'rifle', defaultCount: 0, max: 1 },
+              ],
+            }
+          : m,
+      ),
+      sizes: [
+        {
+          id: 'size10',
+          label: '10 models',
+          models: {
+            sgt: { min: 1, max: 1, default: 1 },
+            trooper: { min: 4, max: 9, default: 9 },
+            special: { min: 0, max: 2, default: 0 },
+          },
+          pools: [
+            { label: 'Troopers', max: 9, modelIds: ['trooper', 'special'] },
+          ],
+        },
+        {
+          id: 'size5',
+          label: '5 models',
+          models: {
+            sgt: { min: 1, max: 1, default: 1 },
+            trooper: { min: 2, max: 4, default: 4 },
+            special: { min: 0, max: 1, default: 0 },
+          },
+        },
+      ],
+    }
+    expect(rowPools(phantom, 'shooting', 'size10')).toEqual([])
+  })
+
   it('translates model pools into weapon-row caps', () => {
     const pools = rowPools(sizedUnit, 'shooting', 'size10')
     expect(pools).toHaveLength(1)

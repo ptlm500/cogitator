@@ -169,11 +169,11 @@ export function rowPools(
     }
   }
   const rows = profileRows(unit, mode, sizeId)
-  return size.pools
-    .map((pool) => {
-      const ids = new Set(pool.modelIds)
-      const keys = rows
-        .filter((r) => {
+  return (
+    size.pools
+      .map((pool) => {
+        const ids = new Set(pool.modelIds)
+        const inPool = rows.filter((r) => {
           const weaponId = r.key.slice(0, r.key.lastIndexOf(':'))
           const carriers = contributors.get(weaponId)
           return (
@@ -182,10 +182,20 @@ export function rowPools(
             [...carriers].every((id) => ids.has(id))
           )
         })
-        .map((r) => r.key)
-      return { label: pool.label, max: pool.max, keys }
-    })
-    .filter((p) => p.keys.length > 0)
+        return {
+          label: pool.label,
+          max: pool.max,
+          keys: inPool.map((r) => r.key),
+          capacity: inPool.reduce((sum, r) => sum + r.maxCount, 0),
+        }
+      })
+      // a pool only matters when its rows could exceed the budget; weapons
+      // also carried by models outside the pool (the Long-quill's Kroot
+      // rifle) fall out of the mapping, which can leave a budget that
+      // nothing meaningful spends — showing it would just confuse
+      .filter((p) => p.keys.length > 0 && p.capacity > p.max)
+      .map(({ capacity: _capacity, ...pool }) => pool)
+  )
 }
 
 /** Manual overrides for defender traits; undefined means "from data" */
