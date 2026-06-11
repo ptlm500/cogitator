@@ -4,11 +4,13 @@ import {
   PanelHeader,
   PanelTitle,
 } from '@/components/ui/panel/panel'
+import type { SituationToggle } from '@/lib/editions.ts'
 import type { DefenderOverrides } from '@/lib/simulation.ts'
 import type { AttackContext, RerollMode } from '@/rules/types.ts'
 import { SegmentedControl } from './SegmentedControl.tsx'
 
 interface ModifiersPanelProps {
+  situations: SituationToggle[]
   context: AttackContext
   overrides: DefenderOverrides
   onContextChange: (context: AttackContext) => void
@@ -33,14 +35,8 @@ const SAVE_OPTIONS = (suffix: string) => [
   ...[3, 4, 5, 6].map((n) => ({ value: n, label: `${n}${suffix}` })),
 ]
 
-const SITUATION: { key: keyof AttackContext; label: string; hint: string }[] = [
-  { key: 'halfRange', label: 'Half range', hint: 'Rapid Fire / Melta' },
-  { key: 'stationary', label: 'Stationary', hint: 'Heavy' },
-  { key: 'charged', label: 'Charged', hint: 'Lance' },
-  { key: 'inCover', label: 'In cover', hint: 'Benefit of Cover' },
-]
-
 export function ModifiersPanel({
+  situations,
   context,
   overrides,
   onContextChange,
@@ -66,7 +62,7 @@ export function ModifiersPanel({
               Situation
             </span>
             <div className="flex flex-wrap gap-1">
-              {SITUATION.map(({ key, label, hint }) => {
+              {situations.map(({ key, label, hint }) => {
                 const active = Boolean(context[key])
                 return (
                   <button

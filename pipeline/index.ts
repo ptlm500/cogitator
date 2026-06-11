@@ -1,6 +1,6 @@
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { isParseableDice } from '../src/rules/10e/dice.ts'
+import { isParseableDice } from '../src/rules/lib/dice.ts'
 import type { DataIndex, FactionFile, FactionRef } from '../src/data/types.ts'
 import { BsIndex, extractFaction } from './extract.ts'
 import { fetchBsData, readPins, updatePins, type EditionPin } from './fetch.ts'
@@ -61,7 +61,7 @@ async function buildEdition(
     (f) => f.endsWith('.cat') || f.endsWith('.gst'),
   )
   console.log(
-    `[${edition}] parsing ${files.length} files from ${pin.repo} @ ${pin.sha.slice(0, 7)}`,
+    `[${edition}] parsing ${files.length} files from ${pin.repo} @ ${pin.sha!.slice(0, 7)}`,
   )
 
   const docs: BSDocument[] = []
@@ -75,7 +75,7 @@ async function buildEdition(
   }
 
   const factions = docs
-    .map((doc) => extractFaction(doc, index, pin.sha, edition))
+    .map((doc) => extractFaction(doc, index, pin.sha!, edition))
     .filter((f): f is FactionFile => f !== null)
   validate(edition, factions)
 
@@ -101,8 +101,8 @@ async function buildEdition(
   const dataIndex: DataIndex = {
     schema: 1,
     edition,
-    source: pin.repo,
-    sha: pin.sha,
+    source: pin.repo!,
+    sha: pin.sha!,
     generatedAt: new Date().toISOString(),
     factions: refs,
   }
@@ -122,6 +122,13 @@ async function main() {
     : await readPins()
 
   for (const [edition, pin] of Object.entries(editions)) {
+    if (pin.dataFrom) {
+      if (!editions[pin.dataFrom] || editions[pin.dataFrom].dataFrom) {
+        throw new Error(`[${edition}] dataFrom points to unknown edition`)
+      }
+      console.log(`[${edition}] aliased to ${pin.dataFrom} data`)
+      continue
+    }
     const { factions, units } = await buildEdition(edition, pin)
     console.log(`[${edition}] wrote ${factions} factions, ${units} units`)
   }
@@ -132,6 +139,7 @@ async function main() {
       Object.entries(editions).map(([edition, pin]) => ({
         edition,
         label: pin.label,
+        ...(pin.dataFrom ? { data: pin.dataFrom } : {}),
       })),
       null,
       2,

@@ -32,6 +32,9 @@ export interface DefenderSegment {
   invuln?: number
   wounds: number
   feelNoPain?: number
+  /** Attached character: reported separately, excluded from the
+   * models-slain distribution. Character segments must come last. */
+  isCharacter?: boolean
 }
 
 export interface DefenderInput {
@@ -41,9 +44,6 @@ export interface DefenderInput {
    * on a tie); each segment rolls its own saves and Feel No Pain.
    */
   segments: DefenderSegment[]
-  /** The final segment is an attached character (10e Leader rules):
-   * reported separately and excluded from the models-slain distribution */
-  attachedLast?: boolean
   /** Reduce each attack's damage by this amount (min 1) */
   damageReduction?: number
   /** Unit keywords, used by Anti-X weapons */
@@ -64,12 +64,17 @@ export interface AttackContext {
   critHitOn?: number
   /** Target is within half range (Rapid Fire, Melta) */
   halfRange?: boolean
-  /** Attacker remained stationary (Heavy) */
+  /** Attacker remained stationary (Heavy; 11e indirect-fire spotter) */
   stationary?: boolean
   /** Attacker charged this turn (Lance) */
   charged?: boolean
   /** Defender has the Benefit of Cover */
   inCover?: boolean
+  /** 11e: attacker is Engaged (close-quarters shooting penalties) */
+  engaged?: boolean
+  /** 11e: resolving Indirect Fire (target gains cover, no hit re-rolls,
+   * harsh unmodified-roll floors unless stationary with a spotter) */
+  indirectFire?: boolean
 }
 
 export interface AttackResult {
@@ -83,14 +88,15 @@ export interface AttackResult {
     damage: number
     modelsSlain: number
   }
-  /** P(k bodyguard models slain) by index */
+  /** P(k non-character models slain) by index */
   slain: number[]
   /** P(total effective damage = d) by index */
   damage: number[]
-  /** Probability the whole unit is destroyed (including any attached character) */
+  /** Probability the whole unit is destroyed (including any attached characters) */
   unitKilled: number
-  /** Probability the attached character is slain (only when one is attached) */
-  attachedSlain?: number
+  /** Probability each attached character is slain, in segment order
+   * (only present when characters are attached) */
+  characterSlain?: number[]
 }
 
 export interface RulesEngine {

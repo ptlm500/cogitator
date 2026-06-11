@@ -46,13 +46,16 @@ pnpm data:update   # re-pin to BSData main HEAD and regenerate
 manual dispatch), commits the result if anything changed, and triggers a
 Pages deploy.
 
-### Adding 11th edition when it lands
+### 11th edition
 
-1. Add an `11e` entry to `pipeline/bsdata-pin.json` pointing at the new
-   BSData repo.
-2. Implement `src/rules/11e/` and register it in `src/rules/index.ts`.
-3. Run `pnpm data:build` — the app's edition switcher appears automatically
-   once `editions.json` lists more than one edition.
+The 11e rules engine (`src/rules/11e/`) implements the new edition's
+batch save system: saves roll together, sort lowest-to-highest, and are
+consumed against the defender's chosen defense-group order (see
+[PLAN-11E.md](PLAN-11E.md)). Until `BSData/wh40k-11e` exists, the 11e
+edition aliases the 10e dataset (`dataFrom` in `pipeline/bsdata-pin.json`)
+as a preview — point it at the real repo and verify the schema when it
+lands. Pending final rules text, weapon ability definitions are assumed
+unchanged from 10e.
 
 ## Deployment
 

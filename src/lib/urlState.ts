@@ -7,7 +7,7 @@ export interface SharedState {
   edition?: string
   attackerFaction?: string
   attackerUnitId?: string
-  attackerCharId?: string
+  attackerCharIds?: string[]
   mode?: AttackMode
   /** Weapon counts that differ from the default loadout */
   counts?: Record<string, number>
@@ -15,7 +15,9 @@ export interface SharedState {
   skills?: Record<string, number>
   defenderFaction?: string
   defenderUnitId?: string
-  defenderCharId?: string
+  defenderCharIds?: string[]
+  /** Defense-group allocation order (group ids) */
+  groupOrder?: string[]
   /** Model count per statline id */
   modelCounts?: Record<string, number>
   /** Total model count from pre-mixed-statline URLs */
@@ -29,6 +31,8 @@ const SITUATION_FLAGS: [keyof AttackContext, string][] = [
   ['stationary', 's'],
   ['charged', 'c'],
   ['inCover', 'v'],
+  ['engaged', 'e'],
+  ['indirectFire', 'i'],
 ]
 
 const REROLLS: RerollMode[] = ['none', 'ones', 'fails']
@@ -47,7 +51,9 @@ export function serializeState(state: SharedState): string {
   if (state.edition && state.edition !== '10e') set('ed', state.edition)
   set('af', state.attackerFaction)
   set('au', state.attackerUnitId)
-  set('ac', state.attackerCharId)
+  if (state.attackerCharIds && state.attackerCharIds.length > 0) {
+    set('ac', state.attackerCharIds.join(','))
+  }
   if (state.mode === 'melee') set('m', 'melee')
   const counts = Object.entries(state.counts ?? {})
   if (counts.length > 0) {
@@ -59,7 +65,12 @@ export function serializeState(state: SharedState): string {
   }
   set('df', state.defenderFaction)
   set('du', state.defenderUnitId)
-  set('dc', state.defenderCharId)
+  if (state.defenderCharIds && state.defenderCharIds.length > 0) {
+    set('dc', state.defenderCharIds.join(','))
+  }
+  if (state.groupOrder && state.groupOrder.length > 0) {
+    set('go', state.groupOrder.join(','))
+  }
   const modelCounts = Object.entries(state.modelCounts ?? {})
   if (modelCounts.length > 0) {
     set('dm', modelCounts.map(([k, v]) => `${k}:${v}`).join(','))
@@ -92,7 +103,8 @@ export function parseState(hash: string): SharedState {
   state.edition = get('ed')
   state.attackerFaction = get('af')
   state.attackerUnitId = get('au')
-  state.attackerCharId = get('ac')
+  const ac = p.get('ac')
+  if (ac) state.attackerCharIds = ac.split(',').filter(Boolean)
   if (p.get('m') === 'melee') state.mode = 'melee'
   const parseKeyedNumbers = (raw: string | null) => {
     if (!raw) return undefined
@@ -109,7 +121,10 @@ export function parseState(hash: string): SharedState {
   state.skills = parseKeyedNumbers(p.get('sk'))
   state.defenderFaction = get('df')
   state.defenderUnitId = get('du')
-  state.defenderCharId = get('dc')
+  const dc = p.get('dc')
+  if (dc) state.defenderCharIds = dc.split(',').filter(Boolean)
+  const go = p.get('go')
+  if (go) state.groupOrder = go.split(',').filter(Boolean)
   const dm = p.get('dm')
   if (dm !== null && dm.includes(':')) {
     state.modelCounts = parseKeyedNumbers(dm)

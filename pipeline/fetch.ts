@@ -12,8 +12,11 @@ const PIN_FILE = path.join(PIPELINE_DIR, 'bsdata-pin.json')
 
 export interface EditionPin {
   label: string
-  repo: string
-  sha: string
+  repo?: string
+  sha?: string
+  /** Serve another edition's generated data instead of building its own
+   * (e.g. 11e previewing on 10e data until BSData publishes wh40k-11e) */
+  dataFrom?: string
 }
 
 interface PinFile {
@@ -29,6 +32,7 @@ export async function readPins(): Promise<Record<string, EditionPin>> {
 export async function updatePins(): Promise<Record<string, EditionPin>> {
   const editions = await readPins()
   for (const [edition, pin] of Object.entries(editions)) {
+    if (!pin.repo) continue
     const res = await fetch(
       `https://api.github.com/repos/${pin.repo}/commits/main`,
       { headers: { accept: 'application/vnd.github+json' } },
@@ -50,6 +54,9 @@ export async function updatePins(): Promise<Record<string, EditionPin>> {
  * directory containing the .gst and .cat files.
  */
 export async function fetchBsData(pin: EditionPin): Promise<string> {
+  if (!pin.repo || !pin.sha) {
+    throw new Error('fetchBsData called for an edition without a pinned repo')
+  }
   const dir = path.join(CACHE_DIR, pin.sha)
   if (existsSync(dir)) return dir
 

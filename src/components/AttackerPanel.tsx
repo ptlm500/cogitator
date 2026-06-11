@@ -18,7 +18,8 @@ interface AttackerPanelProps {
   unit?: Unit
   /** All units of the selected faction (for the character picker) */
   factionUnits: Unit[]
-  attachedId?: string
+  attachedIds: string[]
+  maxAttached: number
   mode: AttackMode
   rows: ProfileRow[]
   counts: Record<string, number>
@@ -26,7 +27,7 @@ interface AttackerPanelProps {
   skills: Record<string, number>
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
-  onAttachedChange: (unitId: string | undefined) => void
+  onAttachedChange: (index: number, unitId: string | undefined) => void
   onModeChange: (mode: AttackMode) => void
   onCountChange: (key: string, count: number) => void
   onSkillChange: (key: string, skill: number | undefined) => void
@@ -47,7 +48,8 @@ export function AttackerPanel({
   factionFile,
   unit,
   factionUnits,
-  attachedId,
+  attachedIds,
+  maxAttached,
   mode,
   rows,
   counts,
@@ -74,11 +76,20 @@ export function AttackerPanel({
         />
         {unit && (
           <>
-            <CharacterSelect
-              units={factionUnits.filter((u) => u.id !== unit.id)}
-              value={attachedId}
-              onChange={onAttachedChange}
-            />
+            {Array.from({ length: maxAttached }, (_, i) =>
+              i === 0 || attachedIds[i - 1] ? (
+                <CharacterSelect
+                  key={i}
+                  units={factionUnits.filter(
+                    (u) =>
+                      u.id !== unit.id &&
+                      !attachedIds.some((id, j) => j !== i && id === u.id),
+                  )}
+                  value={attachedIds[i]}
+                  onChange={(id) => onAttachedChange(i, id)}
+                />
+              ) : null,
+            )}
             <Tabs
               value={mode}
               onValueChange={(v) => onModeChange(v as AttackMode)}

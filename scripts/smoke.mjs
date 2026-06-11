@@ -151,6 +151,47 @@ if (Number(mixedSlain2) <= Number(mixedSlain)) {
 }
 console.log(`mixed statlines work: slain ${mixedSlain} -> ${mixedSlain2}`)
 
+// --- 11th edition (preview on 10e data) ---
+const hits10e = await stat(fresh, 'Hits')
+await fresh
+  .getByRole('group', { name: 'Edition' })
+  .getByRole('button', { name: '11th Ed (Preview)' })
+  .click()
+await fresh
+  .getByText('Probability', { exact: false })
+  .waitFor({ timeout: 5000 })
+// uniform defender: hit math is unchanged between editions
+const hits11e = await stat(fresh, 'Hits')
+if (hits10e !== hits11e) {
+  throw new Error(`uniform-defender hits differ: ${hits10e} vs ${hits11e}`)
+}
+// 11e-only toggles appear
+await fresh.getByRole('button', { name: 'Indirect fire' }).waitFor()
+// cover is now a BS penalty: toggling it must reduce hits
+await fresh.getByRole('button', { name: 'Target in cover' }).click()
+await fresh.waitForTimeout(200)
+const hitsCover = await stat(fresh, 'Hits')
+if (Number(hitsCover) >= Number(hits11e)) {
+  throw new Error(`11e cover did not reduce hits: ${hits11e} -> ${hitsCover}`)
+}
+await fresh.getByRole('button', { name: 'Target in cover' }).click()
+console.log(`11e cover works: hits ${hits11e} -> ${hitsCover}`)
+
+// defense-group reordering changes allocation results
+await fresh.getByLabel('Increase Torment models').click()
+await fresh.waitForTimeout(200)
+const beforeReorder = await stat(fresh, 'Damage')
+await fresh.getByLabel('Move Mutant earlier').click()
+await fresh.waitForTimeout(200)
+const afterReorder = await stat(fresh, 'Damage')
+if (beforeReorder === afterReorder) {
+  throw new Error('group reorder had no effect on results')
+}
+console.log(
+  `11e group reorder works: damage ${beforeReorder} -> ${afterReorder}`,
+)
+await fresh.screenshot({ path: '/tmp/cogitator-11e.png', fullPage: true })
+
 // mobile viewport render check
 const mobile = await newPage({ width: 375, height: 800 })
 await mobile.goto(shareUrl, { waitUntil: 'domcontentloaded' })

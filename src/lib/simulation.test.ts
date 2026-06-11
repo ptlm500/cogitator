@@ -231,9 +231,9 @@ describe('toDefenderInput', () => {
     const input = toDefenderInput({
       unit,
       modelCounts: { s1: 5 },
-      attachedUnit: char,
+      attachedUnits: [char],
     })
-    expect(input.attachedLast).toBe(true)
+    expect(input.segments[1].isCharacter).toBe(true)
     expect(input.segments[1]).toEqual({
       models: 1,
       toughness: 5,
@@ -241,6 +241,7 @@ describe('toDefenderInput', () => {
       wounds: 5,
       invuln: 4,
       feelNoPain: 5,
+      isCharacter: true,
     })
     expect(input.keywords).toEqual(['Infantry', 'Character', 'Hero'])
   })
@@ -337,7 +338,7 @@ describe('runSimulation', () => {
     const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
     expect(
       runSimulation(
-        '11e',
+        '99e',
         rows,
         counts,
         {},

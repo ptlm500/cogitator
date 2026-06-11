@@ -118,8 +118,10 @@ export interface DefenderConfig {
   unit: Unit
   /** Model count per statline id; segments take hits in statline order */
   modelCounts: Record<string, number>
-  /** A character attached to the unit (allocated to last) */
-  attachedUnit?: Unit
+  /** Defense-group allocation order (group ids); defaults to data order */
+  groupOrder?: string[]
+  /** Characters attached to the unit (allocated to last, in this order) */
+  attachedUnits?: Unit[]
   overrides?: DefenderOverrides
 }
 
@@ -186,9 +188,22 @@ export function defenseGroups(unit: Unit): DefenseGroup[] {
   })
 }
 
+/** Order groups by an explicit id order, unknown ids keeping data order */
+function orderGroups(
+  groups: DefenseGroup[],
+  order: string[] | undefined,
+): DefenseGroup[] {
+  if (!order || order.length === 0) return groups
+  const index = new Map(order.map((id, i) => [id, i]))
+  return [...groups].sort(
+    (a, b) =>
+      (index.get(a.id) ?? order.length) - (index.get(b.id) ?? order.length),
+  )
+}
+
 export function toDefenderInput(config: DefenderConfig): DefenderInput {
   const overrides = config.overrides ?? {}
-  const groups = defenseGroups(config.unit)
+  const groups = orderGroups(defenseGroups(config.unit), config.groupOrder)
   const segments: DefenderSegment[] = groups
     .filter((g) => (config.modelCounts[g.id] ?? 0) > 0)
     .map((g) => ({
@@ -215,20 +230,29 @@ export function toDefenderInput(config: DefenderConfig): DefenderInput {
     damageReduction: overrides.damageReduction ? 1 : 0,
     keywords: config.unit.keywords,
   }
-  const char = config.attachedUnit
-  const charStat = char?.statlines[0]
-  if (char && charStat) {
-    segments.push({
-      models: 1,
-      toughness: charStat.T,
-      save: charStat.SV,
-      wounds: Math.max(1, charStat.W),
-      invuln: override(overrides.invuln, char.invuln),
-      feelNoPain: override(overrides.feelNoPain, char.feelNoPain),
-    })
-    input.attachedLast = true
+  const chars = (config.attachedUnits ?? []).filter(
+    (c) => c.statlines.length > 0,
+  )
+  if (chars.length > 0) {
+    for (const char of chars) {
+      const charStat = char.statlines[0]
+      segments.push({
+        models: 1,
+        toughness: charStat.T,
+        save: charStat.SV,
+        wounds: Math.max(1, charStat.W),
+        invuln: override(overrides.invuln, char.invuln),
+        feelNoPain: override(overrides.feelNoPain, char.feelNoPain),
+        isCharacter: true,
+      })
+    }
     // Anti-X matches against the combined unit's keywords
-    input.keywords = [...new Set([...config.unit.keywords, ...char.keywords])]
+    input.keywords = [
+      ...new Set([
+        ...config.unit.keywords,
+        ...chars.flatMap((c) => c.keywords),
+      ]),
+    ]
   }
   return input
 }

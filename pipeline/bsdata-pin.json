@@ -4,6 +4,10 @@
       "label": "10th Edition",
       "repo": "BSData/wh40k-10e",
       "sha": "3e8d74b3e7c5fc4c69719d9923714a684a8b7403"
+    },
+    "11e": {
+      "label": "11th Ed (Preview)",
+      "dataFrom": "10e"
     }
   }
 }

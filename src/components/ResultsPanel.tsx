@@ -10,7 +10,7 @@ import { DistChart } from './DistChart.tsx'
 interface ResultsPanelProps {
   result?: AttackResult
   defenderName?: string
-  attachedName?: string
+  attachedNames?: string[]
 }
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
@@ -24,7 +24,7 @@ const pct = (p: number) =>
 export function ResultsPanel({
   result,
   defenderName,
-  attachedName,
+  attachedNames = [],
 }: ResultsPanelProps) {
   return (
     <Panel>
@@ -67,15 +67,15 @@ export function ResultsPanel({
               <span className="font-mono text-[var(--color-amber)]">
                 {pct(result.unitKilled)}
               </span>
-              {result.attachedSlain !== undefined && (
-                <>
+              {result.characterSlain?.map((p, i) => (
+                <span key={i}>
                   {' · '}
-                  {attachedName ?? 'attached character'} slain:{' '}
+                  {attachedNames[i] ?? 'attached character'} slain:{' '}
                   <span className="font-mono text-[var(--color-amber)]">
-                    {pct(result.attachedSlain)}
+                    {pct(p)}
                   </span>
-                </>
-              )}
+                </span>
+              ))}
             </p>
             <div className="grid gap-6 lg:grid-cols-2">
               <DistChart title="Models slain" dist={result.slain} />

@@ -15,6 +15,7 @@ import {
   type AttackMode,
   type DefenderOverrides,
 } from '@/lib/simulation.ts'
+import { editionUiFor } from '@/lib/editions.ts'
 import { parseState, serializeState } from '@/lib/urlState.ts'
 import type { AttackContext } from '@/rules/types.ts'
 
@@ -36,7 +37,9 @@ function App() {
     initial.attackerFaction,
   )
   const [attackerUnitId, setAttackerUnitId] = useState(initial.attackerUnitId)
-  const [attackerCharId, setAttackerCharId] = useState(initial.attackerCharId)
+  const [attackerCharIds, setAttackerCharIds] = useState<string[]>(
+    initial.attackerCharIds ?? [],
+  )
   const [mode, setMode] = useState<AttackMode>(initial.mode ?? 'shooting')
   const [counts, setCounts] = useState<Record<string, number>>({})
   // BS/WS characteristic overrides by row key (only deltas are stored)
@@ -46,40 +49,54 @@ function App() {
     initial.defenderFaction,
   )
   const [defenderUnitId, setDefenderUnitId] = useState(initial.defenderUnitId)
-  const [defenderCharId, setDefenderCharId] = useState(initial.defenderCharId)
+  const [defenderCharIds, setDefenderCharIds] = useState<string[]>(
+    initial.defenderCharIds ?? [],
+  )
   // model count per statline id of the defender unit
   const [modelCounts, setModelCounts] = useState<Record<string, number>>({})
+  // 11e: defense-group allocation order chosen by the defender
+  const [groupOrder, setGroupOrder] = useState<string[] | undefined>(
+    initial.groupOrder,
+  )
 
   const [context, setContext] = useState<AttackContext>(initial.context ?? {})
   const [overrides, setOverrides] = useState<DefenderOverrides>(
     initial.overrides ?? {},
   )
 
-  const attackerData = useFaction(edition, attackerFaction)
-  const defenderData = useFaction(edition, defenderFaction)
+  const capabilities = editionUiFor(edition)
+  // an edition may serve another edition's dataset while previewing
+  const dataEdition =
+    editions.data?.find((e) => e.edition === edition)?.data ?? edition
+  const attackerData = useFaction(dataEdition, attackerFaction)
+  const defenderData = useFaction(dataEdition, defenderFaction)
   const attacker = attackerData.data?.units.find((u) => u.id === attackerUnitId)
-  const attackerChar = attackerData.data?.units.find(
-    (u) => u.id === attackerCharId,
-  )
+  const attackerChars = attackerCharIds
+    .slice(0, capabilities.maxAttachedCharacters)
+    .map((id) => attackerData.data?.units.find((u) => u.id === id))
+    .filter((u): u is Unit => u !== undefined)
   const defender = defenderData.data?.units.find((u) => u.id === defenderUnitId)
-  const defenderChar = defenderData.data?.units.find(
-    (u) => u.id === defenderCharId,
-  )
+  const defenderChars = defenderCharIds
+    .slice(0, capabilities.maxAttachedCharacters)
+    .map((id) => defenderData.data?.units.find((u) => u.id === id))
+    .filter((u): u is Unit => u !== undefined)
 
+  const attackerCharsKey = attackerChars.map((u) => u.id).join(',')
   const rows = useMemo(() => {
     if (!attacker) return []
-    const unitRows = profileRows(attacker, mode)
-    if (!attackerChar) return unitRows
-    // the attached character attacks alongside the unit; its row keys are
+    // attached characters attack alongside the unit; their row keys are
     // namespaced so shared weapon entries don't collide with the unit's
     return [
-      ...unitRows,
-      ...profileRows(attackerChar, mode).map((r) => ({
-        ...r,
-        key: `c.${r.key}`,
-      })),
+      ...profileRows(attacker, mode),
+      ...attackerChars.flatMap((char, i) =>
+        profileRows(char, mode).map((r) => ({
+          ...r,
+          key: `c${i}.${r.key}`,
+        })),
+      ),
     ]
-  }, [attacker, attackerChar, mode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attacker, attackerCharsKey, mode])
   // reset weapon counts to the new defaults whenever the rows change
   const [countsFor, setCountsFor] = useState<typeof rows>()
   if (countsFor !== rows) {
@@ -114,6 +131,7 @@ function App() {
         next[groups[0].id] = pending.legacyModels
       }
       setModelCounts(next)
+      if (defenderFor !== undefined) setGroupOrder(undefined)
       if (
         pending.modelCounts !== undefined ||
         pending.legacyModels !== undefined
@@ -127,6 +145,7 @@ function App() {
     }
   }
 
+  const defenderCharsKey = defenderChars.map((u) => u.id).join(',')
   const result = useMemo(() => {
     if (!attacker || !defender || rows.length === 0) return undefined
     return runSimulation(
@@ -137,16 +156,19 @@ function App() {
       {
         unit: defender,
         modelCounts,
-        attachedUnit: defenderChar,
+        groupOrder,
+        attachedUnits: defenderChars,
         overrides,
       },
       context,
     )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     edition,
     attacker,
     defender,
-    defenderChar,
+    defenderCharsKey,
+    groupOrder,
     rows,
     counts,
     skills,
@@ -167,13 +189,14 @@ function App() {
       edition,
       attackerFaction,
       attackerUnitId,
-      attackerCharId,
+      attackerCharIds,
       mode,
       counts: changed,
       skills,
       defenderFaction,
       defenderUnitId,
-      defenderCharId,
+      defenderCharIds,
+      groupOrder,
       modelCounts: defender ? modelCounts : undefined,
       context,
       overrides,
@@ -182,14 +205,15 @@ function App() {
     edition,
     attackerFaction,
     attackerUnitId,
-    attackerCharId,
+    attackerCharIds,
     mode,
     rows,
     counts,
     skills,
     defenderFaction,
     defenderUnitId,
-    defenderCharId,
+    defenderCharIds,
+    groupOrder,
     modelCounts,
     defender,
     context,
@@ -232,13 +256,10 @@ function App() {
                 label: e.label,
               }))}
               value={edition}
-              onChange={(next) => {
-                setEdition(next)
-                setAttackerFaction(undefined)
-                setAttackerUnitId(undefined)
-                setDefenderFaction(undefined)
-                setDefenderUnitId(undefined)
-              }}
+              // selections survive the switch: while 11e aliases the 10e
+              // dataset the same units resolve, and with real 11e data a
+              // stale id simply leaves the unit unselected
+              onChange={setEdition}
             />
           ) : (
             <Badge>
@@ -251,11 +272,12 @@ function App() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <AttackerPanel
-          edition={edition}
+          edition={dataEdition}
           factionFile={attackerFaction}
           unit={attacker}
           factionUnits={attackerData.data?.units ?? []}
-          attachedId={attackerCharId}
+          attachedIds={attackerCharIds}
+          maxAttached={capabilities.maxAttachedCharacters}
           mode={mode}
           rows={rows}
           counts={counts}
@@ -263,10 +285,17 @@ function App() {
           onFactionChange={(f) => {
             setAttackerFaction(f)
             setAttackerUnitId(undefined)
-            setAttackerCharId(undefined)
+            setAttackerCharIds([])
           }}
           onUnitChange={setAttackerUnitId}
-          onAttachedChange={setAttackerCharId}
+          onAttachedChange={(i, id) =>
+            setAttackerCharIds((ids) => {
+              const next = [...ids]
+              if (id === undefined) next.splice(i, 1)
+              else next[i] = id
+              return next.filter(Boolean)
+            })
+          }
           onModeChange={setMode}
           onCountChange={(key, count) =>
             setCounts((c) => ({ ...c, [key]: count }))
@@ -281,26 +310,39 @@ function App() {
           }
         />
         <DefenderPanel
-          edition={edition}
+          edition={dataEdition}
           factionFile={defenderFaction}
           unit={defender}
           factionUnits={defenderData.data?.units ?? []}
-          attached={defenderChar}
+          attachedUnits={defenderChars}
+          attachedIds={defenderCharIds}
+          maxAttached={capabilities.maxAttachedCharacters}
           modelCounts={modelCounts}
+          groupReorder={capabilities.groupReorder}
+          groupOrder={groupOrder}
           onFactionChange={(f) => {
             setDefenderFaction(f)
             setDefenderUnitId(undefined)
-            setDefenderCharId(undefined)
+            setDefenderCharIds([])
           }}
           onUnitChange={setDefenderUnitId}
-          onAttachedChange={setDefenderCharId}
+          onAttachedChange={(i, id) =>
+            setDefenderCharIds((ids) => {
+              const next = [...ids]
+              if (id === undefined) next.splice(i, 1)
+              else next[i] = id
+              return next.filter(Boolean)
+            })
+          }
           onModelCountChange={(id, count) =>
             setModelCounts((c) => ({ ...c, [id]: count }))
           }
+          onGroupOrderChange={setGroupOrder}
         />
       </div>
 
       <ModifiersPanel
+        situations={capabilities.situations}
         context={context}
         overrides={overrides}
         onContextChange={setContext}
@@ -310,7 +352,7 @@ function App() {
       <ResultsPanel
         result={result}
         defenderName={defender?.name}
-        attachedName={defenderChar?.name}
+        attachedNames={defenderChars.map((u) => u.name)}
       />
 
       <footer className="mt-auto pt-4 text-xs text-[var(--text-muted)]">

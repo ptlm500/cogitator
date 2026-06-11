@@ -6,7 +6,7 @@ import {
   PanelTitle,
 } from '@/components/ui/panel/panel'
 import type { Unit } from '@/data/types.ts'
-import { defenseGroups } from '@/lib/simulation.ts'
+import { defenseGroups, type DefenseGroup } from '@/lib/simulation.ts'
 import { CharacterSelect } from './CharacterSelect.tsx'
 import { NumberStepper } from './NumberStepper.tsx'
 import { UnitSelect } from './UnitSelect.tsx'
@@ -17,13 +17,19 @@ interface DefenderPanelProps {
   unit?: Unit
   /** All units of the selected faction (for the character picker) */
   factionUnits: Unit[]
-  attached?: Unit
+  attachedUnits: Unit[]
+  attachedIds: string[]
+  maxAttached: number
   /** Model count per statline id */
   modelCounts: Record<string, number>
+  /** 11e: defender chooses the defense-group allocation order */
+  groupReorder: boolean
+  groupOrder?: string[]
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
-  onAttachedChange: (unitId: string | undefined) => void
+  onAttachedChange: (index: number, unitId: string | undefined) => void
   onModelCountChange: (statlineId: string, count: number) => void
+  onGroupOrderChange: (order: string[]) => void
 }
 
 export function DefenderPanel({
@@ -31,14 +37,36 @@ export function DefenderPanel({
   factionFile,
   unit,
   factionUnits,
-  attached,
+  attachedUnits,
+  attachedIds,
+  maxAttached,
   modelCounts,
+  groupReorder,
+  groupOrder,
   onFactionChange,
   onUnitChange,
   onAttachedChange,
   onModelCountChange,
+  onGroupOrderChange,
 }: DefenderPanelProps) {
-  const groups = unit ? defenseGroups(unit) : []
+  const baseGroups = unit ? defenseGroups(unit) : []
+  const orderGroups = (gs: DefenseGroup[]): DefenseGroup[] => {
+    if (!groupOrder || groupOrder.length === 0) return gs
+    const index = new Map(groupOrder.map((id, i) => [id, i]))
+    return [...gs].sort(
+      (a, b) =>
+        (index.get(a.id) ?? groupOrder.length) -
+        (index.get(b.id) ?? groupOrder.length),
+    )
+  }
+  const groups = orderGroups(baseGroups)
+  const move = (from: number, dir: -1 | 1) => {
+    const ids = groups.map((g) => g.id)
+    const to = from + dir
+    if (to < 0 || to >= ids.length) return
+    ;[ids[from], ids[to]] = [ids[to], ids[from]]
+    onGroupOrderChange(ids)
+  }
   const single = groups.length === 1
   const stat = groups[0]
   const maxFor = (group: (typeof groups)[number]) =>
@@ -59,11 +87,20 @@ export function DefenderPanel({
         />
         {unit && (
           <>
-            <CharacterSelect
-              units={factionUnits.filter((u) => u.id !== unit.id)}
-              value={attached?.id}
-              onChange={onAttachedChange}
-            />
+            {Array.from({ length: maxAttached }, (_, i) =>
+              i === 0 || attachedIds[i - 1] ? (
+                <CharacterSelect
+                  key={i}
+                  units={factionUnits.filter(
+                    (u) =>
+                      u.id !== unit.id &&
+                      !attachedIds.some((id, j) => j !== i && id === u.id),
+                  )}
+                  value={attachedIds[i]}
+                  onChange={(id) => onAttachedChange(i, id)}
+                />
+              ) : null,
+            )}
             {single && stat ? (
               <>
                 <dl className="grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
@@ -105,18 +142,42 @@ export function DefenderPanel({
               </>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--border)]">
-                {groups.map((g) => (
+                {groups.map((g, gi) => (
                   <li
                     key={g.id}
                     className="flex items-center justify-between gap-3 py-2"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-[var(--text-primary)]">
-                        {g.name}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        T{g.T} · SV{g.SV}+ · W{g.W} · OC{g.OC}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      {groupReorder && (
+                        <span className="flex flex-col">
+                          <button
+                            type="button"
+                            aria-label={`Move ${g.name} earlier`}
+                            disabled={gi === 0}
+                            onClick={() => move(gi, -1)}
+                            className="border border-[var(--border)] px-1 font-mono text-[10px] leading-tight text-[var(--text-muted)] hover:text-[var(--color-green)] disabled:opacity-30"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Move ${g.name} later`}
+                            disabled={gi === groups.length - 1}
+                            onClick={() => move(gi, 1)}
+                            className="border border-[var(--border)] px-1 font-mono text-[10px] leading-tight text-[var(--text-muted)] hover:text-[var(--color-green)] disabled:opacity-30"
+                          >
+                            ▼
+                          </button>
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-[var(--text-primary)]">
+                          {g.name}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          T{g.T} · SV{g.SV}+ · W{g.W} · OC{g.OC}
+                        </p>
+                      </div>
                     </div>
                     <NumberStepper
                       value={modelCounts[g.id] ?? 0}
@@ -136,14 +197,22 @@ export function DefenderPanel({
                 allocated to the groups in this order
               </p>
             )}
-            {attached && attached.statlines[0] && (
-              <p className="text-xs text-[var(--text-muted)]">
-                + {attached.name}: T{attached.statlines[0].T} · SV
-                {attached.statlines[0].SV}+ · W{attached.statlines[0].W}
-                {attached.invuln ? ` · ${attached.invuln}++` : ''}
-                {attached.feelNoPain ? ` · FNP ${attached.feelNoPain}+` : ''}
-                <span className="ml-1">(takes hits last)</span>
-              </p>
+            {attachedUnits.map(
+              (attached) =>
+                attached.statlines[0] && (
+                  <p
+                    key={attached.id}
+                    className="text-xs text-[var(--text-muted)]"
+                  >
+                    + {attached.name}: T{attached.statlines[0].T} · SV
+                    {attached.statlines[0].SV}+ · W{attached.statlines[0].W}
+                    {attached.invuln ? ` · ${attached.invuln}++` : ''}
+                    {attached.feelNoPain
+                      ? ` · FNP ${attached.feelNoPain}+`
+                      : ''}
+                    <span className="ml-1">(takes hits last)</span>
+                  </p>
+                ),
             )}
             <p className="flex flex-wrap gap-1">
               {unit.keywords.map((kw) => (

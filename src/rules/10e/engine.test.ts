@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { certain } from './dist.ts'
+import { certain } from '../lib/dist.ts'
 import {
   applyWounds,
   effectiveToughness,
@@ -9,7 +9,11 @@ import {
   rollOutcomes,
   woundTarget,
 } from './engine.ts'
-import type { DefenderInput, WeaponProfileInput } from '../types.ts'
+import type {
+  DefenderInput,
+  DefenderSegment,
+  WeaponProfileInput,
+} from '../types.ts'
 
 const ranged = (over: Partial<WeaponProfileInput>): WeaponProfileInput => ({
   type: 'ranged',
@@ -42,7 +46,7 @@ interface DefenderShorthand {
 
 /** Single-segment defender (plus optional attached character) */
 const defender = (over: DefenderShorthand): DefenderInput => {
-  const segments = [
+  const segments: DefenderSegment[] = [
     {
       models: over.models ?? 5,
       toughness: over.toughness ?? 4,
@@ -58,11 +62,11 @@ const defender = (over: DefenderShorthand): DefenderInput => {
       invuln: undefined,
       feelNoPain: undefined,
       ...over.attached,
+      isCharacter: true,
     })
   }
   return {
     segments,
-    attachedLast: over.attached ? true : undefined,
     damageReduction: over.damageReduction,
     keywords: over.keywords,
   }
@@ -446,8 +450,8 @@ describe('attached characters', () => {
     // bodyguard dies to any wound
     expect(r.slain[1]).toBeCloseTo(1 - 1 / 36, 12)
     // character dies only if both attacks wound and its 4+ save fails
-    expect(r.attachedSlain).toBeCloseTo((25 / 36) * (1 / 2), 12)
-    expect(r.unitKilled).toBeCloseTo(r.attachedSlain!, 12)
+    expect(r.characterSlain?.[0]).toBeCloseTo((25 / 36) * (1 / 2), 12)
+    expect(r.unitKilled).toBeCloseTo(r.characterSlain![0], 12)
   })
 
   it("applies the character's own feel no pain", () => {
@@ -471,7 +475,7 @@ describe('attached characters', () => {
         attached: { toughness: 4, save: 6, wounds: 1, feelNoPain: 4 },
       }),
     )
-    expect(r.attachedSlain).toBeCloseTo((25 / 36) * (1 / 2), 12)
+    expect(r.characterSlain?.[0]).toBeCloseTo((25 / 36) * (1 / 2), 12)
   })
 
   it('wound rolls use majority toughness, highest on a tie', () => {
@@ -495,7 +499,7 @@ describe('attached characters', () => {
       [{ profile: ranged({ attacks: '6' }), count: 1 }],
       defender({}),
     )
-    expect(r.attachedSlain).toBeUndefined()
+    expect(r.characterSlain).toBeUndefined()
   })
 })
 
@@ -526,7 +530,7 @@ describe('mixed statlines', () => {
     expect(r.slain[1] + r.slain[2]).toBeCloseTo(1 - 1 / 36, 12)
     expect(r.unitKilled).toBeCloseTo((25 / 36) * (1 / 2), 12)
     // no attached character: nothing reported as one
-    expect(r.attachedSlain).toBeUndefined()
+    expect(r.characterSlain).toBeUndefined()
   })
 
   it('tracks different wounds characteristics across segments', () => {

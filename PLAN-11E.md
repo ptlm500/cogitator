@@ -119,6 +119,9 @@ intricate enough that an independent oracle is worth the test runtime.
 
 ## Phasing
 
+Phases 1-3 were built 2026-06-11, with 11e previewing on the 10e dataset
+via a pin alias until BSData publishes wh40k-11e (phase 4).
+
 1. **Shared-math extraction** — move dist/dice/roll helpers to
    `src/rules/lib/`, no behavior change (10e tests must pass untouched).
 2. **11e engine** — sorted-batch allocation DP + cover/indirect/engaged hit

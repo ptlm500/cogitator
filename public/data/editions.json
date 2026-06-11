@@ -2,5 +2,10 @@
   {
     "edition": "10e",
     "label": "10th Edition"
+  },
+  {
+    "edition": "11e",
+    "label": "11th Ed (Preview)",
+    "data": "10e"
   }
 ]

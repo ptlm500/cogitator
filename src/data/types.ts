@@ -5,6 +5,8 @@
 export interface EditionRef {
   edition: string
   label: string
+  /** Serve this other edition's data directory (preview aliasing) */
+  data?: string
 }
 
 export interface DataIndex {
