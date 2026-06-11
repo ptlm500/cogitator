@@ -19,6 +19,9 @@ describe('urlState', () => {
       defenderUnitId: 'def-456',
       defenderCharIds: ['char-2'],
       groupOrder: ['stat-2', 'stat-1'],
+      defToughness: { 'stat-1': 6 },
+      defSave: { 'stat-1': 2 },
+      defWounds: { 'stat-2': 4 },
       modelCounts: { 'stat-1': 7, 'stat-2': 2 },
       context: {
         halfRange: true,

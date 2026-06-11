@@ -122,6 +122,12 @@ export interface DefenderConfig {
   modelCounts: Record<string, number>
   /** Defense-group allocation order (group ids); defaults to data order */
   groupOrder?: string[]
+  /** Per-group Toughness overrides (by group id) */
+  groupToughness?: Record<string, number>
+  /** Per-group Save overrides (by group id) */
+  groupSave?: Record<string, number>
+  /** Per-group Wounds overrides (by group id) */
+  groupWounds?: Record<string, number>
   /** Characters attached to the unit (allocated to last, in this order) */
   attachedUnits?: Unit[]
   overrides?: DefenderOverrides
@@ -206,26 +212,19 @@ function orderGroups(
 export function toDefenderInput(config: DefenderConfig): DefenderInput {
   const overrides = config.overrides ?? {}
   const groups = orderGroups(defenseGroups(config.unit), config.groupOrder)
+  const segmentFor = (g: DefenseGroup, models: number): DefenderSegment => ({
+    models,
+    toughness: config.groupToughness?.[g.id] ?? g.T,
+    save: config.groupSave?.[g.id] ?? g.SV,
+    wounds: Math.max(1, config.groupWounds?.[g.id] ?? g.W),
+    invuln: override(overrides.invuln, config.unit.invuln),
+    feelNoPain: override(overrides.feelNoPain, config.unit.feelNoPain),
+  })
   const segments: DefenderSegment[] = groups
     .filter((g) => (config.modelCounts[g.id] ?? 0) > 0)
-    .map((g) => ({
-      models: config.modelCounts[g.id],
-      toughness: g.T,
-      save: g.SV,
-      wounds: Math.max(1, g.W),
-      invuln: override(overrides.invuln, config.unit.invuln),
-      feelNoPain: override(overrides.feelNoPain, config.unit.feelNoPain),
-    }))
+    .map((g) => segmentFor(g, config.modelCounts[g.id]))
   if (segments.length === 0 && groups[0]) {
-    const g = groups[0]
-    segments.push({
-      models: 1,
-      toughness: g.T,
-      save: g.SV,
-      wounds: Math.max(1, g.W),
-      invuln: override(overrides.invuln, config.unit.invuln),
-      feelNoPain: override(overrides.feelNoPain, config.unit.feelNoPain),
-    })
+    segments.push(segmentFor(groups[0], 1))
   }
   const input: DefenderInput = {
     segments,

@@ -29,12 +29,6 @@ const REROLL_OPTIONS: { value: RerollMode; label: string }[] = [
   { value: 'fails', label: 'All' },
 ]
 
-const SAVE_OPTIONS = (suffix: string) => [
-  { value: 'auto' as const, label: 'Data' },
-  { value: 'none' as const, label: '—' },
-  ...[3, 4, 5, 6].map((n) => ({ value: n, label: `${n}${suffix}` })),
-]
-
 export function ModifiersPanel({
   situations,
   context,
@@ -46,9 +40,6 @@ export function ModifiersPanel({
     onContextChange({ ...context, ...patch })
   const ovr = (patch: Partial<DefenderOverrides>) =>
     onOverridesChange({ ...overrides, ...patch })
-  const fromManual = (v: number | 'none' | undefined) => v ?? 'auto'
-  const toManual = (v: number | 'none' | 'auto') =>
-    v === 'auto' ? undefined : v
 
   return (
     <Panel>
@@ -121,18 +112,6 @@ export function ModifiersPanel({
           />
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-3">
-          <SegmentedControl
-            label="Defender invuln"
-            options={SAVE_OPTIONS('++')}
-            value={fromManual(overrides.invuln)}
-            onChange={(v) => ovr({ invuln: toManual(v) })}
-          />
-          <SegmentedControl
-            label="Defender FNP"
-            options={SAVE_OPTIONS('+')}
-            value={fromManual(overrides.feelNoPain)}
-            onChange={(v) => ovr({ feelNoPain: toManual(v) })}
-          />
           <SegmentedControl
             label="Damage reduction"
             options={[

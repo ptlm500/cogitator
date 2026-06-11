@@ -266,6 +266,21 @@ describe('toDefenderInput', () => {
     ])
   })
 
+  it('applies per-group toughness, save, and wounds overrides', () => {
+    const input = toDefenderInput({
+      unit,
+      modelCounts: { s1: 5 },
+      groupToughness: { s1: 6 },
+      groupSave: { s1: 2 },
+      groupWounds: { s1: 4 },
+    })
+    expect(input.segments[0]).toMatchObject({
+      toughness: 6,
+      save: 2,
+      wounds: 4,
+    })
+  })
+
   it('applies manual overrides over data values', () => {
     const input = toDefenderInput({
       unit,

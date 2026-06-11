@@ -28,6 +28,10 @@ export interface SharedState {
   defenderCharIds?: string[]
   /** Defense-group allocation order (group ids) */
   groupOrder?: string[]
+  /** Per-group Toughness / Save / Wounds overrides */
+  defToughness?: Record<string, number>
+  defSave?: Record<string, number>
+  defWounds?: Record<string, number>
   /** Model count per statline id */
   modelCounts?: Record<string, number>
   /** Total model count from pre-mixed-statline URLs */
@@ -78,6 +82,9 @@ export function serializeState(state: SharedState): string {
     ['st', state.strength],
     ['ap', state.ap],
     ['db', state.damageBonus],
+    ['dt', state.defToughness],
+    ['dsv', state.defSave],
+    ['dw', state.defWounds],
   ]
   for (const [param, record] of keyed) {
     const entries = Object.entries(record ?? {})
@@ -151,6 +158,9 @@ export function parseState(hash: string): SharedState {
   state.strength = parseKeyedNumbers(p.get('st'))
   state.ap = parseKeyedNumbers(p.get('ap'))
   state.damageBonus = parseKeyedNumbers(p.get('db'))
+  state.defToughness = parseKeyedNumbers(p.get('dt'))
+  state.defSave = parseKeyedNumbers(p.get('dsv'))
+  state.defWounds = parseKeyedNumbers(p.get('dw'))
   const xk = p.get('xk')
   if (xk) {
     const extras: Record<string, string[]> = {}

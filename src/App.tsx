@@ -43,6 +43,9 @@ function App() {
     extras: initial.extras,
     modelCounts: initial.modelCounts,
     legacyModels: initial.legacyModels,
+    defToughness: initial.defToughness,
+    defSave: initial.defSave,
+    defWounds: initial.defWounds,
   })
 
   const [attackerFaction, setAttackerFaction] = useState(
@@ -71,6 +74,10 @@ function App() {
   )
   // model count per statline id of the defender unit
   const [modelCounts, setModelCounts] = useState<Record<string, number>>({})
+  // per-defense-group characteristic overrides (deltas only)
+  const [defToughness, setDefToughness] = useState<Record<string, number>>({})
+  const [defSave, setDefSave] = useState<Record<string, number>>({})
+  const [defWounds, setDefWounds] = useState<Record<string, number>>({})
   // 11e: defense-group allocation order chosen by the defender
   const [groupOrder, setGroupOrder] = useState<string[] | undefined>(
     initial.groupOrder,
@@ -175,15 +182,24 @@ function App() {
         next[groups[0].id] = pending.legacyModels
       }
       setModelCounts(next)
+      setDefToughness(pending.defToughness ?? {})
+      setDefSave(pending.defSave ?? {})
+      setDefWounds(pending.defWounds ?? {})
       if (defenderFor !== undefined) setGroupOrder(undefined)
       if (
         pending.modelCounts !== undefined ||
-        pending.legacyModels !== undefined
+        pending.legacyModels !== undefined ||
+        pending.defToughness !== undefined ||
+        pending.defSave !== undefined ||
+        pending.defWounds !== undefined
       ) {
         setPending((p) => ({
           ...p,
           modelCounts: undefined,
           legacyModels: undefined,
+          defToughness: undefined,
+          defSave: undefined,
+          defWounds: undefined,
         }))
       }
     }
@@ -208,6 +224,9 @@ function App() {
         unit: defender,
         modelCounts,
         groupOrder,
+        groupToughness: defToughness,
+        groupSave: defSave,
+        groupWounds: defWounds,
         attachedUnits: defenderChars,
         overrides,
       },
@@ -229,6 +248,9 @@ function App() {
     damageBonus,
     extras,
     modelCounts,
+    defToughness,
+    defSave,
+    defWounds,
     overrides,
     context,
   ])
@@ -259,6 +281,9 @@ function App() {
       defenderCharIds,
       groupOrder,
       modelCounts: defender ? modelCounts : undefined,
+      defToughness,
+      defSave,
+      defWounds,
       context,
       overrides,
     })
@@ -281,6 +306,9 @@ function App() {
     defenderCharIds,
     groupOrder,
     modelCounts,
+    defToughness,
+    defSave,
+    defWounds,
     defender,
     context,
     overrides,
@@ -431,6 +459,10 @@ function App() {
           attachedIds={defenderCharIds}
           maxAttached={capabilities.maxAttachedCharacters}
           modelCounts={modelCounts}
+          groupToughness={defToughness}
+          groupSave={defSave}
+          groupWounds={defWounds}
+          overrides={overrides}
           groupReorder={capabilities.groupReorder}
           groupOrder={groupOrder}
           onFactionChange={(f) => {
@@ -450,6 +482,31 @@ function App() {
           onModelCountChange={(id, count) =>
             setModelCounts((c) => ({ ...c, [id]: count }))
           }
+          onGroupToughnessChange={(id, v) =>
+            setDefToughness((s) => {
+              const next = { ...s }
+              if (v === undefined) delete next[id]
+              else next[id] = v
+              return next
+            })
+          }
+          onGroupSaveChange={(id, v) =>
+            setDefSave((s) => {
+              const next = { ...s }
+              if (v === undefined) delete next[id]
+              else next[id] = v
+              return next
+            })
+          }
+          onGroupWoundsChange={(id, v) =>
+            setDefWounds((s) => {
+              const next = { ...s }
+              if (v === undefined) delete next[id]
+              else next[id] = v
+              return next
+            })
+          }
+          onOverridesChange={setOverrides}
           onGroupOrderChange={setGroupOrder}
         />
       </div>

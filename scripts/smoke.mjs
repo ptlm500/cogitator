@@ -60,7 +60,7 @@ console.log(`modifier works: hits ${baseline} -> ${buffed}`)
 // FNP override must reduce damage
 const dmgBefore = await stat(page, 'Damage')
 await page
-  .getByRole('group', { name: 'Defender FNP' })
+  .getByRole('group', { name: 'Feel No Pain' })
   .getByRole('button', { name: '5+', exact: true })
   .click()
 await page.waitForTimeout(200)
@@ -71,6 +71,23 @@ if (Number(dmgAfter) >= Number(dmgBefore)) {
   )
 }
 console.log(`override works: damage ${dmgBefore} -> ${dmgAfter}`)
+
+// defender stat tuning: dropping T6 -> T4 makes S4 wound on 4s
+const wTuneBefore = await stat(page, 'Wounds')
+await page.getByLabel('Tune Plague Marine', { exact: true }).click()
+await page.getByLabel('Decrease Plague Marine toughness').click()
+await page.getByLabel('Decrease Plague Marine toughness').click()
+await page.waitForTimeout(200)
+const wTuneAfter = await stat(page, 'Wounds')
+if (Number(wTuneAfter) <= Number(wTuneBefore)) {
+  throw new Error(
+    `defender toughness tune had no effect: ${wTuneBefore} -> ${wTuneAfter}`,
+  )
+}
+await page.getByLabel('Increase Plague Marine toughness').click()
+await page.getByLabel('Increase Plague Marine toughness').click()
+await page.getByLabel('Tune Plague Marine', { exact: true }).click()
+console.log(`defender tune works: wounds ${wTuneBefore} -> ${wTuneAfter}`)
 
 // attaching a character to the attacker adds its weapons
 const attacksBefore = await stat(page, 'Attacks')
