@@ -127,6 +127,88 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
         <entryLink id="link-pods-hero" name="Pods" type="selectionEntryGroup" targetId="grp-pods"/>
       </entryLinks>
       <selectionEntryGroups>
+        <selectionEntryGroup id="grp-arms" name="Arms" defaultSelectionEntryId="opt-launcher" hidden="false">
+          <constraints>
+            <constraint type="min" value="1" field="selections" scope="parent" id="cn-arm1"/>
+            <constraint type="max" value="1" field="selections" scope="parent" id="cn-arm2"/>
+          </constraints>
+          <selectionEntries>
+            <selectionEntry id="opt-claw-pistol" name="Claw with pistol" type="upgrade" hidden="false">
+              <selectionEntries>
+    <selectionEntry id="wpn-claw-a" name="Giant Claw" type="upgrade" hidden="false">
+                  <constraints>
+                    <constraint type="min" value="1" field="selections" scope="parent" id="cn-cla1"/>
+                    <constraint type="max" value="1" field="selections" scope="parent" id="cn-cla2"/>
+                  </constraints>
+      <profiles>
+        <profile id="prof-claw-a" name="Giant Claw" typeName="Melee Weapons" typeId="pt-melee">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">Melee</characteristic>
+            <characteristic name="A" typeId="c-a">4</characteristic>
+            <characteristic name="WS" typeId="c-ws">3+</characteristic>
+            <characteristic name="S" typeId="c-s">8</characteristic>
+            <characteristic name="AP" typeId="c-ap">-2</characteristic>
+            <characteristic name="D" typeId="c-d">2</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
+              </selectionEntries>
+              <entryLinks>
+                <entryLink id="al-pistol" name="Chainsword" type="selectionEntry" targetId="wpn-chainsword">
+                  <constraints>
+                    <constraint type="min" value="1" field="selections" scope="parent" id="cn-alp1"/>
+                  </constraints>
+                </entryLink>
+              </entryLinks>
+            </selectionEntry>
+            <selectionEntry id="opt-claw-solo" name="Solo claw" type="upgrade" hidden="false">
+              <selectionEntries>
+    <selectionEntry id="wpn-claw-b" name="Giant Claw" type="upgrade" hidden="false">
+                  <constraints>
+                    <constraint type="min" value="1" field="selections" scope="parent" id="cn-clb1"/>
+                  </constraints>
+      <profiles>
+        <profile id="prof-claw-b" name="Giant Claw" typeName="Melee Weapons" typeId="pt-melee">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">Melee</characteristic>
+            <characteristic name="A" typeId="c-a">4</characteristic>
+            <characteristic name="WS" typeId="c-ws">3+</characteristic>
+            <characteristic name="S" typeId="c-s">8</characteristic>
+            <characteristic name="AP" typeId="c-ap">-2</characteristic>
+            <characteristic name="D" typeId="c-d">2</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
+              </selectionEntries>
+            </selectionEntry>
+            <selectionEntry id="opt-launcher" name="Launcher option" type="upgrade" hidden="false">
+              <selectionEntries>
+                <selectionEntry id="wpn-launcher" name="Test Launcher" type="upgrade" hidden="false">
+                  <constraints>
+                    <constraint type="min" value="1" field="selections" scope="parent" id="cn-lau1"/>
+                  </constraints>
+                  <profiles>
+                    <profile id="prof-launcher" name="Test Launcher" typeName="Ranged Weapons" typeId="pt-ranged">
+                      <characteristics>
+                        <characteristic name="Range" typeId="c-range">36"</characteristic>
+                        <characteristic name="A" typeId="c-a">2</characteristic>
+                        <characteristic name="BS" typeId="c-bs">3+</characteristic>
+                        <characteristic name="S" typeId="c-s">8</characteristic>
+                        <characteristic name="AP" typeId="c-ap">-2</characteristic>
+                        <characteristic name="D" typeId="c-d">2</characteristic>
+                        <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+                      </characteristics>
+                    </profile>
+                  </profiles>
+                </selectionEntry>
+              </selectionEntries>
+            </selectionEntry>
+          </selectionEntries>
+        </selectionEntryGroup>
         <selectionEntryGroup id="grp-hardpoints" name="Hardpoints" defaultSelectionEntryId="hp-rifle" hidden="false">
           <constraints>
             <constraint type="min" value="3" field="selections" scope="parent" id="cn-hp1"/>
@@ -281,9 +363,9 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
   </sharedSelectionEntryGroups>
 </catalogue>`
 
-function setup() {
+function setup(catXml: string = CAT) {
   const gst = parseBsXml(GST, 'test.gst')
-  const cat = parseBsXml(CAT, 'test.cat')
+  const cat = parseBsXml(catXml, 'test.cat')
   const index = new BsIndex([gst, cat])
   return { gst, cat, index }
 }
@@ -399,7 +481,9 @@ describe('extractUnit', () => {
     const unit = extractUnit(index.resolve('unit-hero')!, index)!
     expect(unit.models).toHaveLength(1)
     expect(unit.models[0]).toMatchObject({ name: 'Test Hero', min: 1, max: 1 })
-    expect(unit.models[0].weapons).toEqual([
+    expect(
+      unit.models[0].weapons.filter((w) => w.choiceGroup !== 'Arms'),
+    ).toEqual([
       {
         weaponId: 'wpn-rifle',
         defaultCount: 3,
@@ -440,6 +524,62 @@ describe('extractUnit', () => {
   it('returns null for entries without a unit statline', () => {
     const { index } = setup()
     expect(extractUnit(index.resolve('wpn-rifle')!, index)).toBeNull()
+  })
+})
+
+describe('compound option wrappers', () => {
+  it('only the default branch contributes defaults; duplicates merge', () => {
+    const { index } = setup()
+    const unit = extractUnit(index.resolve('unit-hero')!, index)!
+    // the two Giant Claw entries collapse into one weapon
+    const claws = Object.values(unit.weapons).filter(
+      (w) => w.name === 'Giant Claw',
+    )
+    expect(claws).toHaveLength(1)
+    const arms = unit.models[0].weapons.filter((w) => w.choiceGroup === 'Arms')
+    const byId = Object.fromEntries(
+      arms.map((r) => [unit.weapons[r.weaponId].name, r]),
+    )
+    // launcher is the group default; claw wrappers are unselected
+    expect(byId['Test Launcher']).toMatchObject({ defaultCount: 1, max: 1 })
+    expect(byId['Giant Claw']).toMatchObject({ defaultCount: 0, max: 1 })
+    expect(byId['Chainsword']).toMatchObject({ defaultCount: 0, max: 1 })
+  })
+
+  const armsDefaults = (catXml: string) => {
+    const { index } = setup(catXml)
+    const unit = extractUnit(index.resolve('unit-hero')!, index)!
+    return Object.fromEntries(
+      unit.models[0].weapons
+        .filter((w) => w.choiceGroup === 'Arms')
+        .map((r) => [unit.weapons[r.weaponId].name, r.defaultCount]),
+    )
+  }
+
+  it('a min-1 group without a declared default falls back to its first option', () => {
+    const defaults = armsDefaults(
+      CAT.replace(' defaultSelectionEntryId="opt-launcher"', ''),
+    )
+    // first option is the claw + chainsword wrapper
+    expect(defaults).toEqual({
+      'Giant Claw': 1,
+      Chainsword: 1,
+      'Test Launcher': 0,
+    })
+  })
+
+  it('a dangling default id is ignored in favour of the first option', () => {
+    const defaults = armsDefaults(
+      CAT.replace(
+        'defaultSelectionEntryId="opt-launcher"',
+        'defaultSelectionEntryId="no-such-entry"',
+      ),
+    )
+    expect(defaults).toEqual({
+      'Giant Claw': 1,
+      Chainsword: 1,
+      'Test Launcher': 0,
+    })
   })
 })
 

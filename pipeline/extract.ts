@@ -337,46 +337,107 @@ interface GroupRange {
   max?: number
 }
 
+/** Weapon ref plus the group-option branch (slot) it was collected under,
+ * used to merge alternatives correctly before output */
+type RawRef = WeaponRef & { slot?: string }
+
+interface CollectState {
+  choiceGroup?: string
+  groupDefaultId?: string
+  groupRange?: GroupRange
+  /** true while inside the default (or min-forced) branch of every
+   * enclosing choice group: only selected branches contribute defaults */
+  selected: boolean
+  /** the group option this branch belongs to; refs in the same slot are
+   * taken together, refs in sibling slots are alternatives */
+  slot?: string
+  depth: number
+}
+
+/**
+ * Resolve a group's effective default option. A declared
+ * defaultSelectionEntryId only counts if it actually matches a child — some
+ * BSData entries carry stale ids copied from sibling datasheets. A min-N
+ * group (or one whose declared default dangles) with no min-forced option
+ * still auto-fills in BattleScribe with its first option — mirror that by
+ * treating the first visible child as the group default.
+ */
+function effectiveGroupDefault(
+  group: BSNode,
+  index: BsIndex,
+  ctx: AncestorContext,
+  range: GroupRange | undefined,
+): string | undefined {
+  const declared = str(group.defaultSelectionEntryId) || undefined
+  const kids = resolvedChildren(group, index, ctx)
+  if (
+    declared !== undefined &&
+    kids.some((k) => k.node.id === declared || k.link?.id === declared)
+  ) {
+    return declared
+  }
+  if (declared === undefined && (range?.min ?? 0) < 1) return undefined
+  if (kids.some((k) => childRange(k).min >= 1)) return undefined
+  const first = kids[0]
+  return first
+    ? str(first.link?.id) || str(first.node.id) || undefined
+    : undefined
+}
+
 /**
  * Collect weapon options under a model (or unit) entry. Descends through
  * selection entry groups; a group of more than one weapon option becomes a
  * named choice group so the UI can treat its options as alternatives.
  *
  * Options without their own constraints inherit the enclosing group's
- * range: a "pick 3 from" group (e.g. the Ravager's Weapon Option group)
- * caps each option at 3, and its default option defaults to the group
- * minimum.
+ * range (a "pick 3 from" group caps each option at 3, and its default
+ * option defaults to the group minimum). Within a group only the default
+ * option's branch — or min-forced options when the group has no default —
+ * is treated as equipped: compound wrappers like the Helbrute's "fist with
+ * combi-bolter" mark their children min-1, which means "1 if this option
+ * is chosen", not "always equipped".
  */
 function collectWeapons(
   node: BSNode,
   index: BsIndex,
   acc: UnitAccumulator,
-  out: WeaponRef[],
+  out: RawRef[],
   ctx: AncestorContext,
-  choiceGroup?: string,
-  groupDefaultId?: string,
-  groupRange?: GroupRange,
-  depth = 0,
+  cs: CollectState,
 ): void {
-  if (depth > 6) return
+  if (cs.depth > 6) return
+  const parentIsGroup = node.type === undefined
   for (const child of resolvedChildren(node, index, ctx)) {
     const { node: n, link } = child
     if (n.type === 'model' || n.type === 'unit') continue
+
+    const ownMin = constraintValue(link, 'min') ?? constraintValue(n, 'min')
+    const isGroupDefault =
+      parentIsGroup &&
+      cs.groupDefaultId !== undefined &&
+      (n.id === cs.groupDefaultId || link?.id === cs.groupDefaultId)
+    // inside a group, an option is part of the default loadout only if it
+    // is the group default, or min-forced in a group without a default
+    const childSelected =
+      cs.selected &&
+      (!parentIsGroup ||
+        (cs.groupDefaultId !== undefined ? isGroupDefault : (ownMin ?? 0) >= 1))
+    const childSlot = parentIsGroup
+      ? str(link?.id) || str(n.id) || cs.slot
+      : cs.slot
+
     const weapon = weaponFromEntry(n, index)
     if (weapon) {
       acc.weapons.set(weapon.id, weapon)
-      const ownMin = constraintValue(link, 'min') ?? constraintValue(n, 'min')
       const ownMax = constraintValue(link, 'max') ?? constraintValue(n, 'max')
       const min = ownMin ?? 0
-      const max = ownMax ?? groupRange?.max ?? Math.max(min, 1)
-      const isGroupDefault =
-        groupDefaultId !== undefined &&
-        (n.id === groupDefaultId || link?.id === groupDefaultId)
-      const defaultCount =
-        min > 0
+      const max = ownMax ?? cs.groupRange?.max ?? Math.max(min, 1)
+      const defaultCount = !childSelected
+        ? 0
+        : min > 0
           ? min
           : isGroupDefault
-            ? Math.max(groupRange?.min ?? 1, 1)
+            ? Math.max(cs.groupRange?.min ?? 1, 1)
             : link?.defaultAmount
               ? 1
               : 0
@@ -384,17 +445,15 @@ function collectWeapons(
         weaponId: weapon.id,
         defaultCount,
         max: Math.max(max, defaultCount),
-        ...(choiceGroup ? { choiceGroup } : {}),
+        ...(cs.choiceGroup ? { choiceGroup: cs.choiceGroup } : {}),
+        ...(childSlot ? { slot: childSlot } : {}),
       })
       continue
     }
     // non-weapon upgrade or group: descend
     const isGroup = n.type === undefined
-    const nextGroup = isGroup ? str(n.name) || choiceGroup : choiceGroup
-    const nextDefault = isGroup
-      ? str(n.defaultSelectionEntryId) || undefined
-      : groupDefaultId
-    const nextRange: GroupRange | undefined = isGroup
+    const groupCtx = extendContext(ctx, child)
+    const groupRange: GroupRange | undefined = isGroup
       ? {
           min:
             constraintValue(child.link, 'min') ??
@@ -402,19 +461,94 @@ function collectWeapons(
             0,
           max: constraintValue(child.link, 'max') ?? constraintValue(n, 'max'),
         }
-      : groupRange
-    collectWeapons(
-      n,
-      index,
-      acc,
-      out,
-      extendContext(ctx, child),
-      nextGroup,
-      nextDefault,
-      nextRange,
-      depth + 1,
-    )
+      : cs.groupRange
+    collectWeapons(n, index, acc, out, groupCtx, {
+      choiceGroup: isGroup ? str(n.name) || cs.choiceGroup : cs.choiceGroup,
+      groupDefaultId: isGroup
+        ? effectiveGroupDefault(n, index, groupCtx, groupRange)
+        : cs.groupDefaultId,
+      groupRange,
+      selected: childSelected,
+      slot: childSlot,
+      depth: cs.depth + 1,
+    })
   }
+}
+
+const initialCollectState = (): CollectState => ({ selected: true, depth: 0 })
+
+/**
+ * Merge collected refs after weapon ids have been canonicalised. Refs of
+ * the same weapon within one choice group are alternatives across slots
+ * (max) but cumulative within a slot (sum); refs outside any choice group
+ * are independent equipment (sum).
+ */
+function mergeWeaponRefs(
+  refs: RawRef[],
+  idMap: Map<string, string>,
+): WeaponRef[] {
+  interface Tally {
+    choiceGroup?: string
+    slots: Map<string, { defaultCount: number; max: number }>
+  }
+  const order: string[] = []
+  const byKey = new Map<string, Tally>()
+  for (const ref of refs) {
+    const weaponId = idMap.get(ref.weaponId) ?? ref.weaponId
+    const group = ref.choiceGroup ?? ''
+    const key = `${group}|${weaponId}`
+    let tally = byKey.get(key)
+    if (!tally) {
+      tally = { choiceGroup: ref.choiceGroup, slots: new Map() }
+      byKey.set(key, tally)
+      order.push(key)
+    }
+    // ungrouped refs all share one slot so they accumulate
+    const slotKey = ref.choiceGroup ? (ref.slot ?? '') : ''
+    const slot = tally.slots.get(slotKey) ?? { defaultCount: 0, max: 0 }
+    slot.defaultCount += ref.defaultCount
+    slot.max += ref.max
+    tally.slots.set(slotKey, slot)
+  }
+  return order.map((key) => {
+    const tally = byKey.get(key)!
+    const weaponId = key.slice(key.indexOf('|') + 1)
+    let defaultCount = 0
+    let max = 0
+    for (const slot of tally.slots.values()) {
+      defaultCount = Math.max(defaultCount, slot.defaultCount)
+      max = Math.max(max, slot.max)
+    }
+    return {
+      weaponId,
+      defaultCount,
+      max,
+      ...(tally.choiceGroup ? { choiceGroup: tally.choiceGroup } : {}),
+    }
+  })
+}
+
+/** Map each weapon id to the first id sharing its name and exact profiles,
+ * so duplicate entries (e.g. the Helbrute's four fists) collapse */
+function canonicalWeaponIds(weapons: Map<string, Weapon>): {
+  idMap: Map<string, string>
+  merged: Map<string, Weapon>
+} {
+  const idMap = new Map<string, string>()
+  const merged = new Map<string, Weapon>()
+  const bySignature = new Map<string, string>()
+  for (const [id, weapon] of weapons) {
+    const signature = JSON.stringify([weapon.name, weapon.profiles])
+    const canonical = bySignature.get(signature)
+    if (canonical) {
+      idMap.set(id, canonical)
+    } else {
+      bySignature.set(signature, id)
+      merged.set(id, weapon)
+      idMap.set(id, id)
+    }
+  }
+  return { idMap, merged }
 }
 
 function extractModel(
@@ -435,8 +569,15 @@ function extractModel(
   }
   collectUnitProfiles(node, index, acc)
   const own = allProfiles(node, index).find((p) => p.typeName === 'Unit')
-  const weapons: WeaponRef[] = []
-  collectWeapons(node, index, acc, weapons, extendContext(ctx, child))
+  const weapons: RawRef[] = []
+  collectWeapons(
+    node,
+    index,
+    acc,
+    weapons,
+    extendContext(ctx, child),
+    initialCollectState(),
+  )
   acc.models.push({
     id: str(node.id),
     name: str(node.name),
@@ -486,17 +627,10 @@ function walkUnitChildren(
       ) {
         walkUnitChildren(n, index, acc, childCtx, depth + 1)
       } else {
-        collectWeapons(
-          n,
-          index,
-          acc,
-          acc.looseWeapons,
-          childCtx,
-          undefined,
-          undefined,
-          undefined,
-          depth + 1,
-        )
+        collectWeapons(n, index, acc, acc.looseWeapons, childCtx, {
+          ...initialCollectState(),
+          depth: depth + 1,
+        })
       }
     }
   }
@@ -559,8 +693,8 @@ export function extractUnit(
 
   // single-model unit: the unit entry is the model
   if (node.type === 'model' && acc.models.length === 0) {
-    const weapons: WeaponRef[] = []
-    collectWeapons(node, index, acc, weapons, ctx)
+    const weapons: RawRef[] = []
+    collectWeapons(node, index, acc, weapons, ctx, initialCollectState())
     acc.models.push({
       id: str(node.id),
       name: str(node.name),
@@ -584,6 +718,14 @@ export function extractUnit(
     model.statlineId = (match ?? statlines[0]).id
   }
 
+  // collapse duplicate weapon entries (same name + identical profiles)
+  // and merge each model's refs with alternative-aware limits
+  const { idMap, merged } = canonicalWeaponIds(acc.weapons)
+  for (const model of acc.models) {
+    model.weapons = mergeWeaponRefs(model.weapons as RawRef[], idMap)
+  }
+  const looseWeapons = mergeWeaponRefs(acc.looseWeapons as RawRef[], idMap)
+
   const name = str(node.name)
   const abilities = [...acc.abilities.values()]
   // dedicated "Invulnerable Save" abilities usually have a bare "4+" as text
@@ -602,8 +744,8 @@ export function extractUnit(
     points: extractPoints(node, index, link),
     statlines,
     models: acc.models,
-    weapons: Object.fromEntries(acc.weapons),
-    looseWeapons: acc.looseWeapons,
+    weapons: Object.fromEntries(merged),
+    looseWeapons,
   }
   if (/\[legends\]/i.test(name)) unit.legends = true
   if (invuln) unit.invuln = Number(invuln)

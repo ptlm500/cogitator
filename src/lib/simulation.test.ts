@@ -147,7 +147,8 @@ describe('defaultModelCounts', () => {
 })
 
 describe('profileRows', () => {
-  it('counts only the first default within a choice group', () => {
+  it('sums ref defaults and maxes across choice groups', () => {
+    // the same weapon offered in two hardpoint groups: separate slots add up
     const u: Unit = {
       ...unit,
       models: [
@@ -158,8 +159,18 @@ describe('profileRows', () => {
           min: 1,
           max: 1,
           weapons: [
-            { weaponId: 'rifle', defaultCount: 1, max: 1, choiceGroup: 'W1' },
-            { weaponId: 'pistol', defaultCount: 1, max: 1, choiceGroup: 'W1' },
+            {
+              weaponId: 'rifle',
+              defaultCount: 1,
+              max: 1,
+              choiceGroup: 'Arm A',
+            },
+            {
+              weaponId: 'rifle',
+              defaultCount: 0,
+              max: 1,
+              choiceGroup: 'Arm B',
+            },
           ],
         },
       ],
@@ -167,7 +178,7 @@ describe('profileRows', () => {
     const rows = profileRows(u, 'shooting')
     const byName = Object.fromEntries(rows.map((r) => [r.profile.name, r]))
     expect(byName['Rifle'].defaultCount).toBe(1)
-    expect(byName['Pistol'].defaultCount).toBe(0)
+    expect(byName['Rifle'].maxCount).toBe(2)
   })
 
   it('lists ranged profiles with derived default counts in shooting mode', () => {

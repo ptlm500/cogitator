@@ -63,16 +63,11 @@ export function profileRows(unit: Unit, mode: AttackMode): ProfileRow[] {
   const maxes = new Map<string, number>()
   for (const model of unit.models) {
     const n = modelCounts[model.id]
-    // options in the same choice group are alternatives: only the first
-    // default in each group counts towards the default loadout
-    const groupsSeen = new Set<string>()
     for (const ref of model.weapons) {
-      let def = ref.defaultCount
-      if (def > 0 && ref.choiceGroup) {
-        if (groupsSeen.has(ref.choiceGroup)) def = 0
-        else groupsSeen.add(ref.choiceGroup)
-      }
-      defaults.set(ref.weaponId, (defaults.get(ref.weaponId) ?? 0) + n * def)
+      defaults.set(
+        ref.weaponId,
+        (defaults.get(ref.weaponId) ?? 0) + n * ref.defaultCount,
+      )
       maxes.set(
         ref.weaponId,
         (maxes.get(ref.weaponId) ?? 0) + model.max * ref.max,
