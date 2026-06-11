@@ -361,6 +361,41 @@ describe('runSimulation', () => {
     expect(boosted.expected.attacks).toBeCloseTo(base.expected.attacks + 9, 12)
   })
 
+  it('applies strength, AP, and damage overrides per profile', () => {
+    const rows = profileRows(unit, 'shooting')
+    const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
+    const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
+    const defender = { unit, modelCounts: { s1: 5 } }
+    const base = runSimulation('10e', rows, { counts }, defender, {})!
+    // S4 -> S8 vs T4: wound on 2+ instead of 4+
+    const strong = runSimulation(
+      '10e',
+      rows,
+      { counts, strength: { [rifleKey]: 8 } },
+      defender,
+      {},
+    )!
+    expect(strong.expected.wounds).toBeGreaterThan(base.expected.wounds)
+    // AP-1 -> AP-3: more unsaved
+    const sharp = runSimulation(
+      '10e',
+      rows,
+      { counts, ap: { [rifleKey]: 3 } },
+      defender,
+      {},
+    )!
+    expect(sharp.expected.unsaved).toBeGreaterThan(base.expected.unsaved)
+    // D1 -> D2: more damage
+    const heavy = runSimulation(
+      '10e',
+      rows,
+      { counts, damageBonus: { [rifleKey]: 1 } },
+      defender,
+      {},
+    )!
+    expect(heavy.expected.damage).toBeGreaterThan(base.expected.damage)
+  })
+
   it('applies granted abilities per profile', () => {
     const rows = profileRows(unit, 'shooting')
     const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))

@@ -271,6 +271,12 @@ export interface RowOverrides {
   skills?: Record<string, number>
   /** Attacks characteristic modifier (min 1 after applying) */
   attackBonus?: Record<string, number>
+  /** Strength characteristic overrides */
+  strength?: Record<string, number>
+  /** AP overrides (non-negative, AP -1 stored as 1) */
+  ap?: Record<string, number>
+  /** Damage characteristic modifier (min 1 after applying) */
+  damageBonus?: Record<string, number>
   /** Granted ability codes (see weaponExtras.ts) */
   extras?: Record<string, string[]>
 }
@@ -288,18 +294,27 @@ export function runSimulation(
     .map((row) => {
       let profile: WeaponProfileInput = row.profile
       const skill = overrides.skills?.[row.key]
-      const bonus = overrides.attackBonus?.[row.key]
+      const strength = overrides.strength?.[row.key]
+      const ap = overrides.ap?.[row.key]
+      const attackBonus = overrides.attackBonus?.[row.key]
+      const damageBonus = overrides.damageBonus?.[row.key]
       const codes = overrides.extras?.[row.key]
       if (
         (skill !== undefined && profile.skill > 0) ||
-        bonus ||
+        strength !== undefined ||
+        ap !== undefined ||
+        attackBonus ||
+        damageBonus ||
         (codes && codes.length > 0)
       ) {
         profile = {
           ...profile,
           skill:
             skill !== undefined && profile.skill > 0 ? skill : profile.skill,
-          attacksBonus: bonus,
+          strength: strength ?? profile.strength,
+          ap: ap ?? profile.ap,
+          attacksBonus: attackBonus,
+          damageBonus,
           keywords: codes?.length
             ? [...profile.keywords, ...extraKeywords(codes)]
             : profile.keywords,

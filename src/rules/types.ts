@@ -16,6 +16,8 @@ export interface WeaponProfileInput {
   ap: number
   /** Damage characteristic, dice notation allowed */
   damage: string
+  /** Modifier to the Damage characteristic (applied per roll, min 1) */
+  damageBonus?: number
   keywords: string[]
 }
 

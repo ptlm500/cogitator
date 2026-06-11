@@ -150,6 +150,10 @@ function resolveWeapon(
 
   // per-segment save target and damage (no cover on saves in 11e)
   let baseDamage = parseDice(profile.damage)
+  if (profile.damageBonus) {
+    const bonus = profile.damageBonus
+    baseDamage = mapValues(baseDamage, (d) => Math.max(1, d + bonus))
+  }
   if (kw.melta && context.halfRange && ranged) {
     baseDamage = convolve(baseDamage, kw.melta)
   }

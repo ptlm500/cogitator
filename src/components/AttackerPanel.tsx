@@ -6,7 +6,7 @@ import {
   PanelTitle,
 } from '@/components/ui/panel/panel'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs/tabs'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Unit } from '@/data/types.ts'
 import type { AttackMode, ProfileRow } from '@/lib/simulation.ts'
 import { EXTRA_ABILITIES, extraLabels } from '@/lib/weaponExtras.ts'
@@ -29,6 +29,12 @@ interface AttackerPanelProps {
   skills: Record<string, number>
   /** Attacks characteristic modifiers by row key */
   attackBonus: Record<string, number>
+  /** Strength characteristic overrides by row key */
+  strengths: Record<string, number>
+  /** AP overrides by row key */
+  aps: Record<string, number>
+  /** Damage characteristic modifiers by row key */
+  damageBonus: Record<string, number>
   /** Granted ability codes by row key (see weaponExtras.ts) */
   extras: Record<string, string[]>
   onFactionChange: (file: string) => void
@@ -38,7 +44,21 @@ interface AttackerPanelProps {
   onCountChange: (key: string, count: number) => void
   onSkillChange: (key: string, skill: number | undefined) => void
   onAttackBonusChange: (key: string, bonus: number | undefined) => void
+  onStrengthChange: (key: string, strength: number | undefined) => void
+  onApChange: (key: string, ap: number | undefined) => void
+  onDamageBonusChange: (key: string, bonus: number | undefined) => void
   onExtraToggle: (key: string, code: string) => void
+}
+
+function Tweak({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="text-[10px] uppercase text-[var(--text-muted)]">
+        {label}
+      </span>
+      {children}
+    </span>
+  )
 }
 
 const statText = (p: ProfileRow['profile']) =>
@@ -63,6 +83,9 @@ export function AttackerPanel({
   counts,
   skills,
   attackBonus,
+  strengths,
+  aps,
+  damageBonus,
   extras,
   onFactionChange,
   onUnitChange,
@@ -71,6 +94,9 @@ export function AttackerPanel({
   onCountChange,
   onSkillChange,
   onAttackBonusChange,
+  onStrengthChange,
+  onApChange,
+  onDamageBonusChange,
   onExtraToggle,
 }: AttackerPanelProps) {
   const [abilityEditor, setAbilityEditor] = useState<string | null>(null)
@@ -119,80 +145,200 @@ export function AttackerPanel({
               </p>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--border)]">
-                {rows.map((row) => (
-                  <li
-                    key={row.key}
-                    className="flex items-center justify-between gap-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-[var(--text-primary)]">
-                        {row.profile.name}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {statText(row.profile)}
-                      </p>
-                      {(row.profile.keywords.length > 0 ||
-                        (extras[row.key]?.length ?? 0) > 0) && (
-                        <p className="mt-1 flex flex-wrap gap-1">
-                          {row.profile.keywords.map((kw) => (
-                            <Badge key={kw} variant="OFFLINE">
-                              {kw}
-                            </Badge>
-                          ))}
-                          {extraLabels(extras[row.key] ?? []).map((label) => (
-                            <span
-                              key={label}
-                              className="border border-[var(--color-amber)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--color-amber)]"
-                            >
-                              {label}
-                            </span>
-                          ))}
+                {rows.map((row) => {
+                  const modChips: string[] = []
+                  const ab = attackBonus[row.key] ?? 0
+                  if (ab !== 0) modChips.push(`A${ab > 0 ? '+' : ''}${ab}`)
+                  const sk = skills[row.key]
+                  if (sk !== undefined && sk !== row.profile.skill) {
+                    modChips.push(
+                      `${row.profile.type === 'ranged' ? 'BS' : 'WS'}${sk}+`,
+                    )
+                  }
+                  const st = strengths[row.key]
+                  if (st !== undefined && st !== row.profile.strength) {
+                    modChips.push(`S${st}`)
+                  }
+                  const apv = aps[row.key]
+                  if (apv !== undefined && apv !== row.profile.ap) {
+                    modChips.push(`AP-${apv}`)
+                  }
+                  const db = damageBonus[row.key] ?? 0
+                  if (db !== 0) modChips.push(`D${db > 0 ? '+' : ''}${db}`)
+                  const editing = abilityEditor === row.key
+                  const modified = modChips.length > 0
+                  return (
+                    <li
+                      key={row.key}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <div className="min-w-0 grow">
+                        <p className="truncate text-sm text-[var(--text-primary)]">
+                          {row.profile.name}
                         </p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAbilityEditor(
-                            abilityEditor === row.key ? null : row.key,
-                          )
-                        }
-                        aria-label={`Edit ${row.profile.name} abilities`}
-                        aria-expanded={abilityEditor === row.key}
-                        className="mt-1 border border-[var(--border)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--text-muted)] hover:text-[var(--color-green)]"
-                      >
-                        {abilityEditor === row.key
-                          ? '− abilities'
-                          : '+ abilities'}
-                      </button>
-                      {abilityEditor === row.key && (
-                        <p className="mt-1 flex flex-wrap gap-1">
-                          {EXTRA_ABILITIES.map((ability) => {
-                            const active = (extras[row.key] ?? []).includes(
-                              ability.code,
-                            )
-                            return (
-                              <button
-                                key={ability.code}
-                                type="button"
-                                aria-pressed={active}
-                                onClick={() =>
-                                  onExtraToggle(row.key, ability.code)
-                                }
-                                className={
-                                  'border px-1.5 py-0.5 font-mono text-[10px] uppercase ' +
-                                  (active
-                                    ? 'border-[var(--color-amber)] text-[var(--color-amber)]'
-                                    : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]')
-                                }
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {statText(row.profile)}
+                        </p>
+                        {(row.profile.keywords.length > 0 ||
+                          modified ||
+                          (extras[row.key]?.length ?? 0) > 0) && (
+                          <p className="mt-1 flex flex-wrap gap-1">
+                            {row.profile.keywords.map((kw) => (
+                              <Badge key={kw} variant="OFFLINE">
+                                {kw}
+                              </Badge>
+                            ))}
+                            {[
+                              ...modChips,
+                              ...extraLabels(extras[row.key] ?? []),
+                            ].map((label) => (
+                              <span
+                                key={label}
+                                className="border border-[var(--color-amber)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--color-amber)]"
                               >
-                                {ability.label}
-                              </button>
-                            )
-                          })}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
+                                {label}
+                              </span>
+                            ))}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAbilityEditor(editing ? null : row.key)
+                          }
+                          aria-label={`Edit ${row.profile.name} abilities`}
+                          aria-expanded={editing}
+                          className="mt-1 border border-[var(--border)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--text-muted)] hover:text-[var(--color-green)]"
+                        >
+                          {editing ? '− tune' : '+ tune'}
+                        </button>
+                        {editing && (
+                          <>
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                              <Tweak label="A±">
+                                <NumberStepper
+                                  value={ab}
+                                  min={-3}
+                                  max={9}
+                                  format={(v) => (v > 0 ? `+${v}` : `${v}`)}
+                                  emphasis={ab !== 0}
+                                  onChange={(v) =>
+                                    onAttackBonusChange(
+                                      row.key,
+                                      v === 0 ? undefined : v,
+                                    )
+                                  }
+                                  label={`${row.profile.name} attacks bonus`}
+                                />
+                              </Tweak>
+                              {row.profile.skill > 0 && (
+                                <Tweak
+                                  label={
+                                    row.profile.type === 'ranged' ? 'BS' : 'WS'
+                                  }
+                                >
+                                  <NumberStepper
+                                    value={sk ?? row.profile.skill}
+                                    min={2}
+                                    max={6}
+                                    format={(v) => `${v}+`}
+                                    emphasis={
+                                      (sk ?? row.profile.skill) !==
+                                      row.profile.skill
+                                    }
+                                    onChange={(v) =>
+                                      onSkillChange(
+                                        row.key,
+                                        v === row.profile.skill ? undefined : v,
+                                      )
+                                    }
+                                    label={`${row.profile.name} skill`}
+                                  />
+                                </Tweak>
+                              )}
+                              <Tweak label="S">
+                                <NumberStepper
+                                  value={st ?? row.profile.strength}
+                                  min={1}
+                                  max={24}
+                                  emphasis={
+                                    (st ?? row.profile.strength) !==
+                                    row.profile.strength
+                                  }
+                                  onChange={(v) =>
+                                    onStrengthChange(
+                                      row.key,
+                                      v === row.profile.strength
+                                        ? undefined
+                                        : v,
+                                    )
+                                  }
+                                  label={`${row.profile.name} strength`}
+                                />
+                              </Tweak>
+                              <Tweak label="AP">
+                                <NumberStepper
+                                  value={apv ?? row.profile.ap}
+                                  min={0}
+                                  max={6}
+                                  format={(v) => `-${v}`}
+                                  emphasis={
+                                    (apv ?? row.profile.ap) !== row.profile.ap
+                                  }
+                                  onChange={(v) =>
+                                    onApChange(
+                                      row.key,
+                                      v === row.profile.ap ? undefined : v,
+                                    )
+                                  }
+                                  label={`${row.profile.name} AP`}
+                                />
+                              </Tweak>
+                              <Tweak label="D±">
+                                <NumberStepper
+                                  value={db}
+                                  min={-3}
+                                  max={9}
+                                  format={(v) => (v > 0 ? `+${v}` : `${v}`)}
+                                  emphasis={db !== 0}
+                                  onChange={(v) =>
+                                    onDamageBonusChange(
+                                      row.key,
+                                      v === 0 ? undefined : v,
+                                    )
+                                  }
+                                  label={`${row.profile.name} damage bonus`}
+                                />
+                              </Tweak>
+                            </div>
+                            <p className="mt-2 flex flex-wrap gap-1">
+                              {EXTRA_ABILITIES.map((ability) => {
+                                const active = (extras[row.key] ?? []).includes(
+                                  ability.code,
+                                )
+                                return (
+                                  <button
+                                    key={ability.code}
+                                    type="button"
+                                    aria-pressed={active}
+                                    onClick={() =>
+                                      onExtraToggle(row.key, ability.code)
+                                    }
+                                    className={
+                                      'border px-1.5 py-0.5 font-mono text-[10px] uppercase ' +
+                                      (active
+                                        ? 'border-[var(--color-amber)] text-[var(--color-amber)]'
+                                        : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]')
+                                    }
+                                  >
+                                    {ability.label}
+                                  </button>
+                                )
+                              })}
+                            </p>
+                          </>
+                        )}
+                      </div>
                       <NumberStepper
                         value={counts[row.key] ?? 0}
                         min={0}
@@ -200,52 +346,9 @@ export function AttackerPanel({
                         onChange={(v) => onCountChange(row.key, v)}
                         label={row.profile.name}
                       />
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] uppercase text-[var(--text-muted)]">
-                          A±
-                        </span>
-                        <NumberStepper
-                          value={attackBonus[row.key] ?? 0}
-                          min={-3}
-                          max={9}
-                          format={(v) => (v > 0 ? `+${v}` : `${v}`)}
-                          emphasis={(attackBonus[row.key] ?? 0) !== 0}
-                          onChange={(v) =>
-                            onAttackBonusChange(
-                              row.key,
-                              v === 0 ? undefined : v,
-                            )
-                          }
-                          label={`${row.profile.name} attacks bonus`}
-                        />
-                      </div>
-                      {row.profile.skill > 0 && (
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] uppercase text-[var(--text-muted)]">
-                            {row.profile.type === 'ranged' ? 'BS' : 'WS'}
-                          </span>
-                          <NumberStepper
-                            value={skills[row.key] ?? row.profile.skill}
-                            min={2}
-                            max={6}
-                            format={(v) => `${v}+`}
-                            emphasis={
-                              (skills[row.key] ?? row.profile.skill) !==
-                              row.profile.skill
-                            }
-                            onChange={(v) =>
-                              onSkillChange(
-                                row.key,
-                                v === row.profile.skill ? undefined : v,
-                              )
-                            }
-                            label={`${row.profile.name} skill`}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </>

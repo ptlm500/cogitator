@@ -37,6 +37,9 @@ function App() {
     counts: initial.counts,
     skills: initial.skills,
     attackBonus: initial.attackBonus,
+    strength: initial.strength,
+    ap: initial.ap,
+    damageBonus: initial.damageBonus,
     extras: initial.extras,
     modelCounts: initial.modelCounts,
     legacyModels: initial.legacyModels,
@@ -54,6 +57,9 @@ function App() {
   // per-row manual overrides (only deltas are stored)
   const [skills, setSkills] = useState<Record<string, number>>({})
   const [attackBonus, setAttackBonus] = useState<Record<string, number>>({})
+  const [strengths, setStrengths] = useState<Record<string, number>>({})
+  const [aps, setAps] = useState<Record<string, number>>({})
+  const [damageBonus, setDamageBonus] = useState<Record<string, number>>({})
   const [extras, setExtras] = useState<Record<string, string[]>>({})
 
   const [defenderFaction, setDefenderFaction] = useState(
@@ -119,12 +125,18 @@ function App() {
       setCounts({ ...defaults, ...pending.counts })
       setSkills(pending.skills ?? {})
       setAttackBonus(pending.attackBonus ?? {})
+      setStrengths(pending.strength ?? {})
+      setAps(pending.ap ?? {})
+      setDamageBonus(pending.damageBonus ?? {})
       setExtras(pending.extras ?? {})
       // URL-provided values are for the first real loadout only
       if (
         pending.counts ||
         pending.skills ||
         pending.attackBonus ||
+        pending.strength ||
+        pending.ap ||
+        pending.damageBonus ||
         pending.extras
       ) {
         setPending((p) => ({
@@ -132,6 +144,9 @@ function App() {
           counts: undefined,
           skills: undefined,
           attackBonus: undefined,
+          strength: undefined,
+          ap: undefined,
+          damageBonus: undefined,
           extras: undefined,
         }))
       }
@@ -139,6 +154,9 @@ function App() {
       setCounts({})
       setSkills({})
       setAttackBonus({})
+      setStrengths({})
+      setAps({})
+      setDamageBonus({})
       setExtras({})
     }
   }
@@ -177,7 +195,15 @@ function App() {
     return runSimulation(
       edition,
       rows,
-      { counts, skills, attackBonus, extras },
+      {
+        counts,
+        skills,
+        attackBonus,
+        strength: strengths,
+        ap: aps,
+        damageBonus,
+        extras,
+      },
       {
         unit: defender,
         modelCounts,
@@ -198,6 +224,9 @@ function App() {
     counts,
     skills,
     attackBonus,
+    strengths,
+    aps,
+    damageBonus,
     extras,
     modelCounts,
     overrides,
@@ -221,6 +250,9 @@ function App() {
       counts: changed,
       skills,
       attackBonus,
+      strength: strengths,
+      ap: aps,
+      damageBonus,
       extras,
       defenderFaction,
       defenderUnitId,
@@ -240,6 +272,9 @@ function App() {
     counts,
     skills,
     attackBonus,
+    strengths,
+    aps,
+    damageBonus,
     extras,
     defenderFaction,
     defenderUnitId,
@@ -317,6 +352,9 @@ function App() {
           counts={counts}
           skills={skills}
           attackBonus={attackBonus}
+          strengths={strengths}
+          aps={aps}
+          damageBonus={damageBonus}
           extras={extras}
           onFactionChange={(f) => {
             setAttackerFaction(f)
@@ -346,6 +384,30 @@ function App() {
           }
           onAttackBonusChange={(key, bonus) =>
             setAttackBonus((s) => {
+              const next = { ...s }
+              if (bonus === undefined) delete next[key]
+              else next[key] = bonus
+              return next
+            })
+          }
+          onStrengthChange={(key, strength) =>
+            setStrengths((s) => {
+              const next = { ...s }
+              if (strength === undefined) delete next[key]
+              else next[key] = strength
+              return next
+            })
+          }
+          onApChange={(key, ap) =>
+            setAps((s) => {
+              const next = { ...s }
+              if (ap === undefined) delete next[key]
+              else next[key] = ap
+              return next
+            })
+          }
+          onDamageBonusChange={(key, bonus) =>
+            setDamageBonus((s) => {
               const next = { ...s }
               if (bonus === undefined) delete next[key]
               else next[key] = bonus

@@ -95,6 +95,9 @@ await page
   .waitFor({ timeout: 3000 })
 console.log('defender character works')
 
+// per-profile tuning lives in the expandable editor
+await page.getByLabel('Edit Bolt Rifle abilities').click()
+
 // +1 attack on the rifles adds one attack per weapon
 const atkBefore = await stat(page, 'Attacks')
 await page.getByLabel('Increase Bolt Rifle attacks bonus').click()
@@ -106,9 +109,40 @@ if (Number(atkAfter) !== Number(atkBefore) + 5) {
 await page.getByLabel('Decrease Bolt Rifle attacks bonus').click()
 console.log(`attack bonus works: attacks ${atkBefore} -> ${atkAfter}`)
 
+// strength, AP and damage tweaks all move the numbers
+const wBefore = await stat(page, 'Wounds')
+// S4 -> S6 vs the Plague Marines' T6: wound roll improves from 5+ to 4+
+await page.getByLabel('Increase Bolt Rifle strength').click()
+await page.getByLabel('Increase Bolt Rifle strength').click()
+await page.waitForTimeout(200)
+const wAfter = await stat(page, 'Wounds')
+if (Number(wAfter) <= Number(wBefore)) {
+  throw new Error(`strength tweak had no effect: ${wBefore} -> ${wAfter}`)
+}
+await page.getByLabel('Decrease Bolt Rifle strength').click()
+await page.getByLabel('Decrease Bolt Rifle strength').click()
+const uBefore = await stat(page, 'Unsaved')
+await page.getByLabel('Increase Bolt Rifle AP').click()
+await page.waitForTimeout(200)
+const uAfter = await stat(page, 'Unsaved')
+if (Number(uAfter) <= Number(uBefore)) {
+  throw new Error(`AP tweak had no effect: ${uBefore} -> ${uAfter}`)
+}
+await page.getByLabel('Decrease Bolt Rifle AP').click()
+const dBefore = await stat(page, 'Damage')
+await page.getByLabel('Increase Bolt Rifle damage bonus').click()
+await page.waitForTimeout(200)
+const dAfter = await stat(page, 'Damage')
+if (Number(dAfter) <= Number(dBefore)) {
+  throw new Error(`damage tweak had no effect: ${dBefore} -> ${dAfter}`)
+}
+await page.getByLabel('Decrease Bolt Rifle damage bonus').click()
+console.log(
+  `stat tweaks work: S ${wBefore}->${wAfter} AP ${uBefore}->${uAfter} D ${dBefore}->${dAfter}`,
+)
+
 // granting Lethal Hits raises expected wounds
 const woundsBefore = await stat(page, 'Wounds')
-await page.getByLabel('Edit Bolt Rifle abilities').click()
 await page.getByRole('button', { name: 'Lethal Hits', exact: true }).click()
 await page.waitForTimeout(200)
 const woundsAfter = await stat(page, 'Wounds')
@@ -118,7 +152,6 @@ if (Number(woundsAfter) <= Number(woundsBefore)) {
   )
 }
 console.log(`granted ability works: wounds ${woundsBefore} -> ${woundsAfter}`)
-await page.getByLabel('Edit Bolt Rifle abilities').click()
 
 // worsening a profile's BS stacks with the +1 hit modifier
 const hitsBeforeSkill = await stat(page, 'Hits')
@@ -133,6 +166,7 @@ if (Number(hitsAfterSkill) >= Number(hitsBeforeSkill)) {
 console.log(
   `skill override works: hits ${hitsBeforeSkill} -> ${hitsAfterSkill}`,
 )
+await page.getByLabel('Edit Bolt Rifle abilities').click()
 const buffedFinal = hitsAfterSkill
 
 // the URL must restore the whole state in a fresh page
