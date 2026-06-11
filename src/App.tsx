@@ -19,6 +19,7 @@ import {
   defenderModelLayout,
   defenseGroups,
   profileRows,
+  rowPools,
   runSimulation,
   type AttackMode,
   type DefenderOverrides,
@@ -61,6 +62,7 @@ function App() {
     initial.attackerFaction,
   )
   const [attackerUnitId, setAttackerUnitId] = useState(initial.attackerUnitId)
+  const [attackerSize, setAttackerSize] = useState(initial.attackerSize)
   const [attackerCharIds, setAttackerCharIds] = useState<string[]>(
     initial.attackerCharIds ?? [],
   )
@@ -85,6 +87,7 @@ function App() {
     initial.defenderFaction,
   )
   const [defenderUnitId, setDefenderUnitId] = useState(initial.defenderUnitId)
+  const [defenderSize, setDefenderSize] = useState(initial.defenderSize)
   const [defenderCharIds, setDefenderCharIds] = useState<string[]>(
     initial.defenderCharIds ?? [],
   )
@@ -129,7 +132,7 @@ function App() {
     // attached characters attack alongside the unit; their row keys are
     // namespaced so shared weapon entries don't collide with the unit's
     return [
-      ...profileRows(attacker, mode),
+      ...profileRows(attacker, mode, attackerSize),
       ...attackerChars.flatMap((char, i) =>
         profileRows(char, mode).map((r) => ({
           ...r,
@@ -138,7 +141,11 @@ function App() {
       ),
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attacker, attackerCharsKey, mode])
+  }, [attacker, attackerCharsKey, mode, attackerSize])
+  const attackerPools = useMemo(
+    () => (attacker ? rowPools(attacker, mode, attackerSize) : []),
+    [attacker, mode, attackerSize],
+  )
   // reset weapon counts to the new defaults whenever the rows change
   const [countsFor, setCountsFor] = useState<typeof rows>()
   if (countsFor !== rows) {
@@ -198,12 +205,15 @@ function App() {
     }
   }
 
-  // reset defender configuration when the defender unit changes
-  const [defenderFor, setDefenderFor] = useState<Unit>()
-  if (defender !== defenderFor) {
-    setDefenderFor(defender)
+  // reset defender configuration when the defender unit or size changes
+  const [defenderFor, setDefenderFor] = useState<string>()
+  const defenderKey = defender
+    ? `${defender.id}|${defenderSize ?? ''}`
+    : undefined
+  if (defenderKey !== defenderFor) {
+    setDefenderFor(defenderKey)
     if (defender) {
-      const groups = defenseGroups(defender)
+      const groups = defenseGroups(defender, defenderSize)
       const defaults = Object.fromEntries(
         groups.map((g) => [g.id, g.defaultCount]),
       )
@@ -318,6 +328,8 @@ function App() {
       defenderFaction,
       defenderUnitId,
       defenderCharIds,
+      attackerSize,
+      defenderSize,
       groupOrder,
       modelCounts: defender ? modelCounts : undefined,
       defToughness,
@@ -346,6 +358,8 @@ function App() {
     defenderFaction,
     defenderUnitId,
     defenderCharIds,
+    attackerSize,
+    defenderSize,
     groupOrder,
     modelCounts,
     defToughness,
@@ -448,9 +462,16 @@ function App() {
           onFactionChange={(f) => {
             setAttackerFaction(f)
             setAttackerUnitId(undefined)
+            setAttackerSize(undefined)
             setAttackerCharIds([])
           }}
-          onUnitChange={setAttackerUnitId}
+          onUnitChange={(id) => {
+            setAttackerUnitId(id)
+            setAttackerSize(undefined)
+          }}
+          sizeId={attackerSize}
+          onSizeChange={setAttackerSize}
+          pools={attackerPools}
           onAttachedChange={(i, id) =>
             setAttackerCharIds((ids) => {
               const next = [...ids]
@@ -553,9 +574,15 @@ function App() {
           onFactionChange={(f) => {
             setDefenderFaction(f)
             setDefenderUnitId(undefined)
+            setDefenderSize(undefined)
             setDefenderCharIds([])
           }}
-          onUnitChange={setDefenderUnitId}
+          onUnitChange={(id) => {
+            setDefenderUnitId(id)
+            setDefenderSize(undefined)
+          }}
+          sizeId={defenderSize}
+          onSizeChange={setDefenderSize}
           onAttachedChange={(i, id) =>
             setDefenderCharIds((ids) => {
               const next = [...ids]

@@ -3,7 +3,9 @@ import type { Unit } from '@/data/types.ts'
 import {
   defaultModelCounts,
   defaultUnitSize,
+  defenseGroups,
   profileRows,
+  rowPools,
   runSimulation,
   toDefenderInput,
 } from './simulation.ts'
@@ -130,6 +132,82 @@ const unit: Unit = {
   },
   looseWeapons: [],
 }
+
+/** The same squad with two selectable compositions and a special-weapon pool */
+const sizedUnit: Unit = {
+  ...unit,
+  id: 'u2',
+  sizes: [
+    {
+      id: 'size5',
+      label: '5 models',
+      models: {
+        sgt: { min: 1, max: 1, default: 1 },
+        trooper: { min: 2, max: 4, default: 4 },
+        special: { min: 0, max: 1, default: 0 },
+      },
+      pools: [{ label: 'Specials', max: 1, modelIds: ['special'] }],
+    },
+    {
+      id: 'size10',
+      label: '10 models',
+      models: {
+        sgt: { min: 1, max: 1, default: 1 },
+        trooper: { min: 4, max: 9, default: 9 },
+        special: { min: 0, max: 2, default: 0 },
+      },
+      pools: [{ label: 'Specials', max: 2, modelIds: ['special'] }],
+    },
+  ],
+}
+
+describe('unit sizes', () => {
+  it('defaults and maxes come from the selected size', () => {
+    expect(defaultModelCounts(sizedUnit, 'size5')).toEqual({
+      sgt: 1,
+      trooper: 4,
+      special: 0,
+    })
+    // unknown or absent size id falls back to the first option
+    expect(defaultModelCounts(sizedUnit)).toEqual({
+      sgt: 1,
+      trooper: 4,
+      special: 0,
+    })
+    expect(defaultModelCounts(sizedUnit, 'size10').trooper).toBe(9)
+  })
+
+  it('profile rows scale with the size', () => {
+    const small = profileRows(sizedUnit, 'shooting', 'size5')
+    const big = profileRows(sizedUnit, 'shooting', 'size10')
+    const rifle = (rows: typeof small) =>
+      rows.find((r) => r.weaponName === 'Rifle')!
+    const plasma = (rows: typeof small) =>
+      rows.find((r) => r.profile.name === 'Plasma - standard')!
+    expect(rifle(small)).toMatchObject({ defaultCount: 4, maxCount: 4 })
+    expect(rifle(big)).toMatchObject({ defaultCount: 9, maxCount: 9 })
+    expect(plasma(small).maxCount).toBe(1)
+    expect(plasma(big).maxCount).toBe(2)
+  })
+
+  it('translates model pools into weapon-row caps', () => {
+    const pools = rowPools(sizedUnit, 'shooting', 'size10')
+    expect(pools).toHaveLength(1)
+    expect(pools[0].max).toBe(2)
+    // both plasma profile rows spend the same budget; the rifle does not
+    expect(pools[0].keys.sort()).toEqual(['plasma:0', 'plasma:1'])
+  })
+
+  it('defense groups respect the size', () => {
+    const small = defenseGroups(sizedUnit, 'size5')
+    const big = defenseGroups(sizedUnit, 'size10')
+    expect(small[0].defaultCount).toBe(5)
+    // capped at the composition's total despite optional specialists
+    expect(small[0].max).toBe(5)
+    expect(big[0].defaultCount).toBe(10)
+    expect(big[0].max).toBe(10)
+  })
+})
 
 describe('defaultModelCounts', () => {
   it('fills the largest optional entry when only leaders have minimums', () => {

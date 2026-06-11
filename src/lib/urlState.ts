@@ -12,6 +12,9 @@ export interface SharedState {
   attackerFaction?: string
   attackerUnitId?: string
   attackerCharIds?: string[]
+  /** Unit-size option ids (for units with selectable compositions) */
+  attackerSize?: string
+  defenderSize?: string
   mode?: AttackMode
   /** Weapon counts that differ from the default loadout */
   counts?: Record<string, number>
@@ -121,6 +124,8 @@ export function serializeState(state: SharedState): string {
     set('ac', state.attackerCharIds.join(','))
   }
   if (state.mode === 'melee') set('m', 'melee')
+  set('asz', state.attackerSize)
+  set('dsz', state.defenderSize)
   const counts = Object.entries(state.counts ?? {})
   if (counts.length > 0) {
     set('wc', counts.map(([k, v]) => `${k}:${v}`).join(','))
@@ -198,6 +203,8 @@ export function parseState(hash: string): SharedState {
   const ac = p.get('ac')
   if (ac) state.attackerCharIds = ac.split(',').filter(Boolean)
   if (p.get('m') === 'melee') state.mode = 'melee'
+  state.attackerSize = get('asz')
+  state.defenderSize = get('dsz')
   const parseKeyedNumbers = (raw: string | null) => {
     if (!raw) return undefined
     const out: Record<string, number> = {}

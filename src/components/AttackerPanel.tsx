@@ -8,12 +8,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs/tabs'
 import { useState, type ReactNode } from 'react'
 import type { Unit } from '@/data/types.ts'
-import type { AttackMode, ProfileRow } from '@/lib/simulation.ts'
+import type { AttackMode, ProfileRow, RowPool } from '@/lib/simulation.ts'
 import type { DamageRerollMode, RerollMode } from '@/rules/types.ts'
 import { EXTRA_ABILITIES, extraLabels } from '@/lib/weaponExtras.ts'
 import { NumberStepper } from './NumberStepper.tsx'
 import { CharacterSelect } from './CharacterSelect.tsx'
 import { SegmentedControl } from './SegmentedControl.tsx'
+import { SizeSelect } from './SizeSelect.tsx'
 import { UnitSelect } from './UnitSelect.tsx'
 
 /** 'inherit' = use the global Modifiers setting for this row */
@@ -53,8 +54,12 @@ interface AttackerPanelProps {
   factionUnits: Unit[]
   attachedIds: string[]
   maxAttached: number
+  /** Selected unit-size option (for units with compositions) */
+  sizeId?: string
   mode: AttackMode
   rows: ProfileRow[]
+  /** Caps shared by several weapon rows (e.g. "2 special weapons") */
+  pools: RowPool[]
   counts: Record<string, number>
   /** BS/WS characteristic overrides by row key */
   skills: Record<string, number>
@@ -74,6 +79,7 @@ interface AttackerPanelProps {
   rerollDamage: Record<string, DamageRerollMode>
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
+  onSizeChange: (sizeId: string) => void
   onAttachedChange: (index: number, unitId: string | undefined) => void
   onModeChange: (mode: AttackMode) => void
   onCountChange: (key: string, count: number) => void
@@ -119,8 +125,10 @@ export function AttackerPanel({
   factionUnits,
   attachedIds,
   maxAttached,
+  sizeId,
   mode,
   rows,
+  pools,
   counts,
   skills,
   attackBonus,
@@ -133,6 +141,7 @@ export function AttackerPanel({
   rerollDamage,
   onFactionChange,
   onUnitChange,
+  onSizeChange,
   onAttachedChange,
   onModeChange,
   onCountChange,
@@ -147,6 +156,17 @@ export function AttackerPanel({
   onRerollDamageChange,
 }: AttackerPanelProps) {
   const [abilityEditor, setAbilityEditor] = useState<string | null>(null)
+  // a row's stepper cannot exceed the remaining budget of any pool it's in
+  const effectiveMax = (row: ProfileRow): number => {
+    let max = row.maxCount
+    for (const pool of pools) {
+      if (!pool.keys.includes(row.key)) continue
+      const used = pool.keys.reduce((sum, k) => sum + (counts[k] ?? 0), 0)
+      const own = counts[row.key] ?? 0
+      max = Math.min(max, own + Math.max(0, pool.max - used))
+    }
+    return max
+  }
   return (
     <Panel>
       <PanelHeader>
@@ -162,6 +182,7 @@ export function AttackerPanel({
         />
         {unit && (
           <>
+            <SizeSelect unit={unit} sizeId={sizeId} onChange={onSizeChange} />
             {Array.from({ length: maxAttached }, (_, i) =>
               i === 0 || attachedIds[i - 1] ? (
                 <CharacterSelect
@@ -185,6 +206,28 @@ export function AttackerPanel({
                 <TabsTrigger value="melee">Melee</TabsTrigger>
               </TabsList>
             </Tabs>
+            {pools.length > 0 && (
+              <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
+                {pools.map((pool) => {
+                  const used = pool.keys.reduce(
+                    (sum, k) => sum + (counts[k] ?? 0),
+                    0,
+                  )
+                  return (
+                    <span
+                      key={pool.label}
+                      className={
+                        used >= pool.max
+                          ? 'text-[var(--color-amber)]'
+                          : undefined
+                      }
+                    >
+                      {pool.label}: {used}/{pool.max}
+                    </span>
+                  )
+                })}
+              </p>
+            )}
             {rows.length === 0 ? (
               <p className="text-sm text-[var(--text-muted)]">
                 No {mode === 'shooting' ? 'ranged' : 'melee'} weapons on this
@@ -439,7 +482,7 @@ export function AttackerPanel({
                       <NumberStepper
                         value={counts[row.key] ?? 0}
                         min={0}
-                        max={row.maxCount}
+                        max={effectiveMax(row)}
                         onChange={(v) => onCountChange(row.key, v)}
                         label={row.profile.name}
                       />

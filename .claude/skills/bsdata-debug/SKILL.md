@@ -53,7 +53,7 @@ shared entries). Find the **shared selectionEntry** the roster entryLink
 targets: locate `<entryLink ... name="<Unit>" ... targetId="X"/>`, then
 `id="X"`. Sibling variants of a datasheet are separate copies — make sure
 you're in the right one (a past bug was a `defaultSelectionEntryId` copied
-from the *other* variant, dangling in this one).
+from the _other_ variant, dangling in this one).
 
 Print the structure (entries, groups, links, constraints, ids,
 `defaultSelectionEntryId`, `targetId`) rather than reading raw XML; a small
@@ -64,16 +64,16 @@ regex dumper over the relevant slice is fine.
 These are the recurring XML patterns; check each against the symptom:
 
 - **entryLink indirection** — options live in `sharedSelectionEntries` and
-  are pulled in by `entryLink targetId`. Constraints on the *link* override
+  are pulled in by `entryLink targetId`. Constraints on the _link_ override
   the target's. An unresolvable targetId silently drops the option.
 - **Group constraints** — `selectionEntryGroup` min/max with
   `scope="parent" field="selections"` is a pick-N range; options without
   their own constraints inherit it (Ravager: pick 3 lances).
 - **Compound option wrappers** — an option like "Fist with combi-bolter" is
-  an upgrade entry whose *children* carry `min=1`, meaning "1 **if** this
+  an upgrade entry whose _children_ carry `min=1`, meaning "1 **if** this
   option is chosen", not "always equipped" (Helbrute).
 - **Defaults** — `defaultSelectionEntryId` names the default child by entry
-  *or link* id. It can be stale/dangling (copied from a sibling datasheet);
+  _or link_ id. It can be stale/dangling (copied from a sibling datasheet);
   a min-N group with no usable default auto-fills with its first option in
   BattleScribe, and the extractor mirrors that (`effectiveGroupDefault`).
 - **Duplicate weapon entries** — wrappers embed their own copies of the same
@@ -86,6 +86,14 @@ These are the recurring XML patterns; check each against the symptom:
   static and **optimistic**: hide only when definitively true, reveal unless
   definitively false. Selection-count conditions are 'unknown' — never hide
   on a guess.
+- **Unit-size compositions** — a pick-1 group ("Unit Composition") whose
+  options each wrap different model counts (Cadian Shock Troops, Burna
+  Boyz). Wargear caps scale per size via constraint **value** modifiers
+  (`increment` on a constraint id) conditioned on `instanceOf ancestor
+  <option id>`, and nested capped groups are selection pools ("up to 2
+  special weapons"). Extracted as `unit.sizes[]` with per-model counts and
+  pools (`extractSizes`, `modifiedConstraintValue`); the UI exposes a size
+  selector and enforces pool budgets on the weapon steppers.
 - **Skipped subtrees** — `Crusade` and `Enhancements` children are excluded
   (`SKIPPED_CHILDREN`); they once leaked hundreds of abilities.
 - **Abilities with bare values** — "Invulnerable Save" profiles may contain
@@ -102,7 +110,7 @@ The machinery in `pipeline/extract.ts`: `BsIndex` (global id index),
 Tests live in `pipeline/extract.test.ts` as synthetic GST/CAT XML fixtures.
 `setup(catXml?)` accepts a variant catalogue — derive edge cases with
 `CAT.replace(...)` (e.g. removing or dangling a `defaultSelectionEntryId`)
-instead of duplicating the fixture. Reproduce the XML *pattern*, not the
+instead of duplicating the fixture. Reproduce the XML _pattern_, not the
 specific datasheet.
 
 ### 5. Measure dataset-wide impact
@@ -128,6 +136,7 @@ def sig(u):
 ```
 
 Report per category and **triage each before trusting the diff**:
+
 - units changed / weapon definitions added or removed
 - weapon names lost entirely (had max>0 before, gone now) — should be 0
 - units whose entire default loadout vanished

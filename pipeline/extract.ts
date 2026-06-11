@@ -4,8 +4,11 @@ import type {
   FactionFile,
   Model,
   PointsTier,
+  SizeCount,
+  SizePool,
   Statline,
   Unit,
+  UnitSize,
   Weapon,
   WeaponProfile,
   WeaponRef,
@@ -247,6 +250,59 @@ function childRange(child: ResolvedChild): { min: number; max: number } {
   return { min, max }
 }
 
+/**
+ * A constraint value after applying the element's own value modifiers
+ * (set / increment / decrement targeting the constraint's id) whose
+ * conditions are statically, definitively true for this ancestor context —
+ * e.g. a special-weapon cap that increases inside the 20-model composition
+ * option ("instanceOf ancestor <option id>").
+ */
+function modifiedConstraintValue(
+  source: BSNode | undefined,
+  type: 'min' | 'max',
+  ctx: AncestorContext,
+): number | undefined {
+  if (!source) return undefined
+  let id: string | undefined
+  let value: number | undefined
+  for (const c of constraintsOf(source)) {
+    if (c.type === type && c.field === 'selections' && c.scope === 'parent') {
+      const v = Number(c.value)
+      if (Number.isFinite(v)) {
+        id = str(c.id)
+        value = v
+      }
+    }
+  }
+  if (value === undefined) return undefined
+  for (const m of modifiersOf(source)) {
+    if (str(m.field) !== id || id === '') continue
+    if (evalOwnConditions(m, ctx) !== true) continue
+    const v = Number(m.value)
+    if (!Number.isFinite(v)) continue
+    if (m.type === 'set') value = v
+    else if (m.type === 'increment') value += v
+    else if (m.type === 'decrement') value -= v
+  }
+  return value
+}
+
+/** childRange honouring statically-true constraint value modifiers */
+function modifiedChildRange(
+  child: ResolvedChild,
+  ctx: AncestorContext,
+): { min: number; max: number } {
+  const min =
+    modifiedConstraintValue(child.link, 'min', ctx) ??
+    modifiedConstraintValue(child.node, 'min', ctx) ??
+    0
+  const max =
+    modifiedConstraintValue(child.link, 'max', ctx) ??
+    modifiedConstraintValue(child.node, 'max', ctx) ??
+    Math.max(min, 1)
+  return { min, max }
+}
+
 function parseWeaponProfile(profile: BSNode): WeaponProfile | null {
   const typeName = str(profile.typeName)
   if (typeName !== 'Ranged Weapons' && typeName !== 'Melee Weapons') return null
@@ -312,6 +368,7 @@ interface UnitAccumulator {
   weapons: Map<string, Weapon>
   models: Model[]
   looseWeapons: WeaponRef[]
+  sizes: UnitSize[]
 }
 
 function collectUnitProfiles(
@@ -588,6 +645,128 @@ function extractModel(
   })
 }
 
+/** Does this subtree contain a model-type entry (resolving links)? */
+function subtreeHasModels(
+  node: BSNode,
+  index: BsIndex,
+  ctx: AncestorContext,
+  depth = 0,
+): boolean {
+  if (depth > 4) return false
+  return resolvedChildren(node, index, ctx).some(
+    (c) =>
+      c.node.type === 'model' ||
+      subtreeHasModels(c.node, index, extendContext(ctx, c), depth + 1),
+  )
+}
+
+interface SizeMember {
+  id: string
+  min: number
+  max: number
+  default: number
+}
+
+/** Fill member defaults up to a group's minimum total, in document order */
+function distributeDefaults(members: SizeMember[], groupMin: number): void {
+  let total = members.reduce((sum, m) => sum + m.default, 0)
+  for (const m of members) {
+    if (total >= groupMin) break
+    const add = Math.min(m.max - m.default, groupMin - total)
+    if (add > 0) {
+      m.default += add
+      total += add
+    }
+  }
+}
+
+/**
+ * Collect the model entries reachable under one composition option, with
+ * counts evaluated in that option's ancestor context (so size-conditional
+ * constraint modifiers apply). A nested group that caps its selections and
+ * holds several members becomes a pool (e.g. "up to 2 special weapons");
+ * a group minimum fills member defaults in document order, mirroring
+ * BattleScribe's auto-fill of the standard composition.
+ */
+function sizeMembersOf(
+  container: BSNode,
+  index: BsIndex,
+  ctx: AncestorContext,
+  pools: SizePool[],
+  depth = 0,
+): SizeMember[] {
+  if (depth > 4) return []
+  const members: SizeMember[] = []
+  for (const child of resolvedChildren(container, index, ctx)) {
+    const n = child.node
+    const childCtx = extendContext(ctx, child)
+    if (n.type === 'model') {
+      const { min, max } = modifiedChildRange(child, ctx)
+      members.push({ id: str(n.id), min, max, default: min })
+    } else if (n.type === undefined) {
+      const sub = sizeMembersOf(n, index, childCtx, pools, depth + 1)
+      if (sub.length === 0) continue
+      const min =
+        modifiedConstraintValue(child.link, 'min', ctx) ??
+        modifiedConstraintValue(n, 'min', childCtx) ??
+        0
+      const max =
+        modifiedConstraintValue(child.link, 'max', ctx) ??
+        modifiedConstraintValue(n, 'max', childCtx)
+      if (max !== undefined && sub.length >= 2) {
+        pools.push({
+          label: str(n.name),
+          max,
+          modelIds: sub.map((m) => m.id),
+        })
+      }
+      if (min > 0) distributeDefaults(sub, min)
+      members.push(...sub)
+    } else if (n.type !== 'unit') {
+      members.push(...sizeMembersOf(n, index, childCtx, pools, depth + 1))
+    }
+  }
+  return members
+}
+
+/**
+ * Extract unit-size options from a composition group: a pick-1 group whose
+ * options each wrap a different set of model counts (BSData's
+ * "Unit Composition" pattern — Cadian Shock Troops, Burna Boyz, ...).
+ */
+function extractSizes(
+  group: BSNode,
+  index: BsIndex,
+  acc: UnitAccumulator,
+  ctx: AncestorContext,
+): void {
+  for (const opt of resolvedChildren(group, index, ctx)) {
+    if (opt.node.type === 'model') continue
+    const optCtx = extendContext(ctx, opt)
+    if (!subtreeHasModels(opt.node, index, optCtx)) continue
+    const pools: SizePool[] = []
+    const members = sizeMembersOf(opt.node, index, optCtx, pools)
+    if (members.length === 0) continue
+    const models: Record<string, SizeCount> = {}
+    for (const m of members) {
+      const cur = models[m.id]
+      models[m.id] = cur
+        ? {
+            min: cur.min + m.min,
+            max: cur.max + m.max,
+            default: cur.default + m.default,
+          }
+        : { min: m.min, max: m.max, default: m.default }
+    }
+    acc.sizes.push({
+      id: str(opt.link?.id) || str(opt.node.id),
+      label: str(opt.node.name),
+      models,
+      ...(pools.length > 0 ? { pools } : {}),
+    })
+  }
+}
+
 function walkUnitChildren(
   node: BSNode,
   index: BsIndex,
@@ -602,7 +781,19 @@ function walkUnitChildren(
     if (n.type === 'model') {
       extractModel(child, index, acc, ctx)
     } else if (n.type === undefined) {
-      // selection entry group
+      // selection entry group: a pick-1 group whose options wrap models is
+      // a unit-size composition choice
+      if (acc.sizes.length === 0) {
+        const { min, max } = childRange(child)
+        if (min === 1 && max === 1) {
+          const options = resolvedChildren(n, index, childCtx).filter(
+            (c) =>
+              c.node.type !== 'model' &&
+              subtreeHasModels(c.node, index, extendContext(childCtx, c)),
+          )
+          if (options.length >= 2) extractSizes(n, index, acc, childCtx)
+        }
+      }
       walkUnitChildren(n, index, acc, childCtx, depth + 1)
     } else if (n.type === 'unit') {
       collectUnitProfiles(n, index, acc)
@@ -620,11 +811,7 @@ function walkUnitChildren(
           defaultCount: min,
           max: Math.max(max, min),
         })
-      } else if (
-        resolvedChildren(n, index, childCtx).some(
-          (c) => c.node.type === 'model',
-        )
-      ) {
+      } else if (subtreeHasModels(n, index, childCtx)) {
         walkUnitChildren(n, index, acc, childCtx, depth + 1)
       } else {
         collectWeapons(n, index, acc, acc.looseWeapons, childCtx, {
@@ -678,6 +865,7 @@ export function extractUnit(
     weapons: new Map(),
     models: [],
     looseWeapons: [],
+    sizes: [],
   }
   // identity for visibility conditions: the unit entry, the link it was
   // reached through, its categories, and the owning catalogue
@@ -747,6 +935,7 @@ export function extractUnit(
     weapons: Object.fromEntries(merged),
     looseWeapons,
   }
+  if (acc.sizes.length >= 2) unit.sizes = acc.sizes
   if (/\[legends\]/i.test(name)) unit.legends = true
   if (invuln) unit.invuln = Number(invuln)
   if (fnp) unit.feelNoPain = Number(fnp)

@@ -15,6 +15,7 @@ import {
 import { CharacterSelect } from './CharacterSelect.tsx'
 import { NumberStepper } from './NumberStepper.tsx'
 import { SegmentedControl } from './SegmentedControl.tsx'
+import { SizeSelect } from './SizeSelect.tsx'
 import { UnitSelect } from './UnitSelect.tsx'
 
 interface DefenderPanelProps {
@@ -26,6 +27,8 @@ interface DefenderPanelProps {
   attachedUnits: Unit[]
   attachedIds: string[]
   maxAttached: number
+  /** Selected unit-size option (for units with compositions) */
+  sizeId?: string
   /** Model count per statline id */
   modelCounts: Record<string, number>
   /** Per-group characteristic overrides (by group id) */
@@ -39,6 +42,7 @@ interface DefenderPanelProps {
   groupOrder?: string[]
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
+  onSizeChange: (sizeId: string) => void
   onAttachedChange: (index: number, unitId: string | undefined) => void
   onModelCountChange: (statlineId: string, count: number) => void
   onGroupToughnessChange: (id: string, value: number | undefined) => void
@@ -62,6 +66,7 @@ export function DefenderPanel({
   attachedUnits,
   attachedIds,
   maxAttached,
+  sizeId,
   modelCounts,
   groupToughness,
   groupSave,
@@ -71,6 +76,7 @@ export function DefenderPanel({
   groupOrder,
   onFactionChange,
   onUnitChange,
+  onSizeChange,
   onAttachedChange,
   onModelCountChange,
   onGroupToughnessChange,
@@ -80,7 +86,7 @@ export function DefenderPanel({
   onGroupOrderChange,
 }: DefenderPanelProps) {
   const [tuneEditor, setTuneEditor] = useState<string | null>(null)
-  const baseGroups = unit ? defenseGroups(unit) : []
+  const baseGroups = unit ? defenseGroups(unit, sizeId) : []
   const orderGroups = (gs: DefenseGroup[]): DefenseGroup[] => {
     if (!groupOrder || groupOrder.length === 0) return gs
     const index = new Map(groupOrder.map((id, i) => [id, i]))
@@ -193,6 +199,7 @@ export function DefenderPanel({
         />
         {unit && (
           <>
+            <SizeSelect unit={unit} sizeId={sizeId} onChange={onSizeChange} />
             {Array.from({ length: maxAttached }, (_, i) =>
               i === 0 || attachedIds[i - 1] ? (
                 <CharacterSelect

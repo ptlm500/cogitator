@@ -333,6 +333,46 @@ console.log(
 )
 await fresh.screenshot({ path: '/tmp/cogitator-11e.png', fullPage: true })
 
+// unit-size compositions: wargear caps scale with the selected size and
+// pool budgets stop illegal loadouts
+await fresh.getByLabel('Faction').nth(0).click()
+await fresh
+  .getByRole('option', { name: 'Imperium - Astra Militarum', exact: true })
+  .click()
+await fresh.getByLabel('Unit').nth(0).click()
+await fresh
+  .getByRole('option', { name: 'Cadian Shock Troops', exact: true })
+  .click()
+await fresh.getByLabel('Unit size').first().waitFor()
+const incFlamer = fresh.getByLabel('Increase Flamer')
+const decLasgun = fresh.getByLabel('Decrease Lasgun')
+await incFlamer.waitFor()
+if (await incFlamer.isEnabled()) {
+  throw new Error('special weapon addable beyond the composition total')
+}
+await decLasgun.click()
+await fresh.waitForTimeout(200)
+if (!(await incFlamer.isEnabled())) {
+  throw new Error('special weapon still blocked after freeing pool budget')
+}
+await incFlamer.click()
+await fresh.waitForTimeout(200)
+if (await incFlamer.isEnabled()) {
+  throw new Error('flamer exceeded its size-10 cap of 1')
+}
+await fresh.getByLabel('Unit size').first().click()
+await fresh.getByRole('option', { name: /2 Shock Trooper Sergeants/ }).click()
+await fresh.waitForTimeout(400)
+await decLasgun.click()
+await decLasgun.click()
+await incFlamer.click()
+await incFlamer.click()
+await fresh.waitForTimeout(200)
+if (await incFlamer.isEnabled()) {
+  throw new Error('flamer exceeded its size-20 cap of 2')
+}
+console.log('unit-size compositions work: flamer cap 1 -> 2 with pool budgets')
+
 // mobile viewport render check
 const mobile = await newPage({ width: 375, height: 800 })
 await mobile.goto(shareUrl, { waitUntil: 'domcontentloaded' })

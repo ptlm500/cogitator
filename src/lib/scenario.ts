@@ -41,7 +41,7 @@ export function computeScenario(
   const defenderChars = findUnits(defenderUnits, state.defenderCharIds)
 
   const rows: ProfileRow[] = [
-    ...profileRows(attacker, mode),
+    ...profileRows(attacker, mode, state.attackerSize),
     ...attackerChars.flatMap((char, i) =>
       profileRows(char, mode).map((r) => ({ ...r, key: `c${i}.${r.key}` })),
     ),
@@ -51,7 +51,7 @@ export function computeScenario(
     ...state.counts,
   }
 
-  const groups = defenseGroups(defender)
+  const groups = defenseGroups(defender, state.defenderSize)
   const modelCounts = {
     ...Object.fromEntries(groups.map((g) => [g.id, g.defaultCount])),
     ...state.modelCounts,

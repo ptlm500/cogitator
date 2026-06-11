@@ -326,6 +326,120 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
         </profile>
       </profiles>
     </selectionEntry>
+
+    <selectionEntry id="unit-platoon" name="Test Platoon" type="unit" hidden="false">
+      <profiles>
+        <profile id="prof-platoon" name="Platoon Trooper" typeName="Unit" typeId="pt-unit">
+          <characteristics>
+            <characteristic name="M" typeId="c-m">6"</characteristic>
+            <characteristic name="T" typeId="c-t">3</characteristic>
+            <characteristic name="SV" typeId="c-sv">5+</characteristic>
+            <characteristic name="W" typeId="c-w">1</characteristic>
+            <characteristic name="LD" typeId="c-ld">7+</characteristic>
+            <characteristic name="OC" typeId="c-oc">2</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+      <costs>
+        <cost name="pts" typeId="pts-id" value="60"/>
+      </costs>
+      <selectionEntryGroups>
+        <selectionEntryGroup id="grp-comp" name="Unit Composition" hidden="false">
+          <constraints>
+            <constraint type="min" value="1" field="selections" scope="parent" id="cn-comp1"/>
+            <constraint type="max" value="1" field="selections" scope="parent" id="cn-comp2"/>
+          </constraints>
+          <selectionEntries>
+        <selectionEntry id="comp-small" name="5 Troopers" type="upgrade" hidden="false">
+          <selectionEntryGroups>
+            <selectionEntryGroup id="grp-small" name="Troopers" hidden="false">
+              <constraints>
+                <constraint type="min" value="5" field="selections" scope="parent" id="cn-grp-small1"/>
+                <constraint type="max" value="5" field="selections" scope="parent" id="cn-grp-small2"/>
+              </constraints>
+              <entryLinks>
+                <entryLink id="lnk-grp-small-troop" name="Platoon Trooper" type="selectionEntry" targetId="mdl-ptrooper">
+                  <constraints>
+                    <constraint type="min" value="3" field="selections" scope="parent" id="cn-grp-small3"/>
+                    <constraint type="max" value="5" field="selections" scope="parent" id="cn-grp-small4"/>
+                  </constraints>
+                </entryLink>
+                <entryLink id="lnk-grp-small-spec" name="Special Weapons" type="selectionEntryGroup" targetId="grp-specials">
+                  <constraints>
+                    <constraint type="max" value="1" field="selections" scope="parent" id="cn-grp-small5"/>
+                  </constraints>
+                </entryLink>
+              </entryLinks>
+            </selectionEntryGroup>
+          </selectionEntryGroups>
+        </selectionEntry>
+        <selectionEntry id="comp-big" name="10 Troopers" type="upgrade" hidden="false">
+          <selectionEntryGroups>
+            <selectionEntryGroup id="grp-big" name="Troopers" hidden="false">
+              <constraints>
+                <constraint type="min" value="10" field="selections" scope="parent" id="cn-grp-big1"/>
+                <constraint type="max" value="10" field="selections" scope="parent" id="cn-grp-big2"/>
+              </constraints>
+              <entryLinks>
+                <entryLink id="lnk-grp-big-troop" name="Platoon Trooper" type="selectionEntry" targetId="mdl-ptrooper">
+                  <constraints>
+                    <constraint type="min" value="6" field="selections" scope="parent" id="cn-grp-big3"/>
+                    <constraint type="max" value="10" field="selections" scope="parent" id="cn-grp-big4"/>
+                  </constraints>
+                </entryLink>
+                <entryLink id="lnk-grp-big-spec" name="Special Weapons" type="selectionEntryGroup" targetId="grp-specials">
+                  <constraints>
+                    <constraint type="max" value="2" field="selections" scope="parent" id="cn-grp-big5"/>
+                  </constraints>
+                </entryLink>
+              </entryLinks>
+            </selectionEntryGroup>
+          </selectionEntryGroups>
+        </selectionEntry>
+          </selectionEntries>
+        </selectionEntryGroup>
+      </selectionEntryGroups>
+    </selectionEntry>
+    <selectionEntry id="mdl-ptrooper" name="Platoon Trooper" type="model" hidden="false">
+      <entryLinks>
+        <entryLink id="lnk-ptr-rifle" name="Test Rifle" type="selectionEntry" targetId="wpn-rifle">
+          <constraints>
+            <constraint type="min" value="1" field="selections" scope="parent" id="cn-ptr1"/>
+            <constraint type="max" value="1" field="selections" scope="parent" id="cn-ptr2"/>
+          </constraints>
+        </entryLink>
+      </entryLinks>
+    </selectionEntry>
+    <selectionEntry id="wpn-pflamer" name="Test Flamer" type="upgrade" hidden="false">
+      <profiles>
+        <profile id="prof-wpn-pflamer" name="Test Flamer" typeName="Ranged Weapons" typeId="pt-ranged">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">12"</characteristic>
+            <characteristic name="A" typeId="c-a">1</characteristic>
+            <characteristic name="BS" typeId="c-bs">4+</characteristic>
+            <characteristic name="S" typeId="c-s">4</characteristic>
+            <characteristic name="AP" typeId="c-ap">-0</characteristic>
+            <characteristic name="D" typeId="c-d">1</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
+    <selectionEntry id="wpn-pmelta" name="Test Melta" type="upgrade" hidden="false">
+      <profiles>
+        <profile id="prof-wpn-pmelta" name="Test Melta" typeName="Ranged Weapons" typeId="pt-ranged">
+          <characteristics>
+            <characteristic name="Range" typeId="c-range">12"</characteristic>
+            <characteristic name="A" typeId="c-a">1</characteristic>
+            <characteristic name="BS" typeId="c-bs">4+</characteristic>
+            <characteristic name="S" typeId="c-s">4</characteristic>
+            <characteristic name="AP" typeId="c-ap">-0</characteristic>
+            <characteristic name="D" typeId="c-d">1</characteristic>
+            <characteristic name="Keywords" typeId="c-kw">-</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+    </selectionEntry>
   </sharedSelectionEntries>
   <sharedSelectionEntryGroups>
     <selectionEntryGroup id="grp-pods" name="Pods" hidden="false">
@@ -360,6 +474,51 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
         <entryLink id="lp-never" name="Never Pod" type="selectionEntry" targetId="wpn-neverpod" hidden="true"/>
       </entryLinks>
     </selectionEntryGroup>
+
+    <selectionEntryGroup id="grp-specials" name="Special Weapons" hidden="false">
+      <selectionEntries>
+    <selectionEntry id="mdl-pflamer" name="Trooper w/ Test Flamer" type="model" hidden="false">
+      <constraints>
+        <constraint type="max" value="1" field="selections" scope="parent" id="cn-pfl"/>
+      </constraints>
+      <modifiers>
+        <modifier type="increment" value="1" field="cn-pfl">
+          <conditions>
+            <condition type="instanceOf" value="1" field="selections" scope="ancestor" childId="comp-big"/>
+          </conditions>
+        </modifier>
+      </modifiers>
+      <entryLinks>
+        <entryLink id="lnk-mdl-pflamer" name="Trooper w/ Test Flamer gun" type="selectionEntry" targetId="wpn-pflamer">
+          <constraints>
+            <constraint type="min" value="1" field="selections" scope="parent" id="cn-mdl-pflamer1"/>
+            <constraint type="max" value="1" field="selections" scope="parent" id="cn-mdl-pflamer2"/>
+          </constraints>
+        </entryLink>
+      </entryLinks>
+    </selectionEntry>
+    <selectionEntry id="mdl-pmelta" name="Trooper w/ Test Melta" type="model" hidden="false">
+      <constraints>
+        <constraint type="max" value="1" field="selections" scope="parent" id="cn-pml"/>
+      </constraints>
+      <modifiers>
+        <modifier type="increment" value="1" field="cn-pml">
+          <conditions>
+            <condition type="instanceOf" value="1" field="selections" scope="ancestor" childId="comp-big"/>
+          </conditions>
+        </modifier>
+      </modifiers>
+      <entryLinks>
+        <entryLink id="lnk-mdl-pmelta" name="Trooper w/ Test Melta gun" type="selectionEntry" targetId="wpn-pmelta">
+          <constraints>
+            <constraint type="min" value="1" field="selections" scope="parent" id="cn-mdl-pmelta1"/>
+            <constraint type="max" value="1" field="selections" scope="parent" id="cn-mdl-pmelta2"/>
+          </constraints>
+        </entryLink>
+      </entryLinks>
+    </selectionEntry>
+      </selectionEntries>
+    </selectionEntryGroup>
   </sharedSelectionEntryGroups>
 </catalogue>`
 
@@ -378,6 +537,7 @@ describe('extractFaction', () => {
     expect(faction!.name).toBe('Test Faction')
     expect(faction!.units.map((u) => u.name)).toEqual([
       'Test Hero',
+      'Test Platoon',
       'Test Squad',
     ])
   })
@@ -580,6 +740,47 @@ describe('compound option wrappers', () => {
       Chainsword: 1,
       'Test Launcher': 0,
     })
+  })
+})
+
+describe('unit-size compositions', () => {
+  const sizes = () => {
+    const { index } = setup()
+    const unit = extractUnit(index.resolve('unit-platoon')!, index)!
+    return { unit, sizes: unit.sizes! }
+  }
+
+  it('extracts one size per composition option', () => {
+    const { sizes: s } = sizes()
+    expect(s.map((x) => x.label)).toEqual(['5 Troopers', '10 Troopers'])
+  })
+
+  it('fills defaults to the group total and scales caps per size', () => {
+    const { sizes: s } = sizes()
+    const small = s[0].models
+    expect(small['mdl-ptrooper']).toEqual({ min: 3, max: 5, default: 5 })
+    expect(small['mdl-pflamer']).toEqual({ min: 0, max: 1, default: 0 })
+    const big = s[1].models
+    expect(big['mdl-ptrooper']).toEqual({ min: 6, max: 10, default: 10 })
+    // the size-conditional constraint modifier raises the cap to 2
+    expect(big['mdl-pflamer']).toEqual({ min: 0, max: 2, default: 0 })
+  })
+
+  it('captures selection pools with size-dependent budgets', () => {
+    const { sizes: s } = sizes()
+    const pool = (x: (typeof s)[number]) =>
+      x.pools!.find((p) => p.label === 'Special Weapons')!
+    expect(pool(s[0]).max).toBe(1)
+    expect(pool(s[1]).max).toBe(2)
+    expect(pool(s[0]).modelIds).toEqual(['mdl-pflamer', 'mdl-pmelta'])
+  })
+
+  it('still extracts the shared models once', () => {
+    const { unit } = sizes()
+    const names = unit.models.map((m) => m.name)
+    expect(names).toContain('Platoon Trooper')
+    expect(names).toContain('Trooper w/ Test Flamer')
+    expect(names.filter((n) => n === 'Platoon Trooper')).toHaveLength(1)
   })
 })
 

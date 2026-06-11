@@ -61,6 +61,35 @@ export interface Unit {
    * (uncommon; resolved properly in the loadout UI)
    */
   looseWeapons: WeaponRef[]
+  /**
+   * Selectable unit-size options (BattleScribe "Unit Composition" groups).
+   * Present only when the datasheet offers more than one composition; model
+   * counts and wargear caps then depend on the chosen size.
+   */
+  sizes?: UnitSize[]
+}
+
+/** One selectable unit composition */
+export interface UnitSize {
+  id: string
+  label: string
+  /** Counts per model entry id; models absent from a size cannot be taken */
+  models: Record<string, SizeCount>
+  /** Caps on the combined count of a set of model entries */
+  pools?: SizePool[]
+}
+
+export interface SizeCount {
+  min: number
+  max: number
+  /** Count in the standard composition of this size */
+  default: number
+}
+
+export interface SizePool {
+  label: string
+  max: number
+  modelIds: string[]
 }
 
 export interface Ability {

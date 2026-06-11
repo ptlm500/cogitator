@@ -7,6 +7,8 @@ describe('urlState', () => {
       attackerFaction: 'imperium-adeptus-astartes-space-marines.json',
       attackerUnitId: 'abc-123',
       attackerCharIds: ['char-1', 'char-9'],
+      attackerSize: 'size-10',
+      defenderSize: 'size-20',
       mode: 'melee',
       counts: { 'w1:0': 5, 'w2:1': 0 },
       skills: { 'w1:0': 2 },

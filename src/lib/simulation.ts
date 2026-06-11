@@ -1,4 +1,4 @@
-import type { Unit, WeaponProfile } from '@/data/types.ts'
+import type { Unit, UnitSize, WeaponProfile } from '@/data/types.ts'
 import type {
   AttackContext,
   AttackResult,
@@ -23,13 +23,30 @@ export interface ProfileRow {
   maxCount: number
 }
 
+/** The unit-size option in effect: the requested one, else the first */
+export function sizeFor(unit: Unit, sizeId?: string): UnitSize | undefined {
+  if (!unit.sizes || unit.sizes.length === 0) return undefined
+  return unit.sizes.find((s) => s.id === sizeId) ?? unit.sizes[0]
+}
+
 /**
- * Default number of each model entry in a unit. Entries with a minimum use
- * it; if that leaves a one-model unit with optional members (common for
- * squads whose members are all "0 to N of..." entries), the entry with the
- * largest cap is filled to it, approximating the standard squad.
+ * Default number of each model entry in a unit. With a unit-size option the
+ * counts come straight from its standard composition. Otherwise entries
+ * with a minimum use it; if that leaves a one-model unit with optional
+ * members (common for squads whose members are all "0 to N of..." entries),
+ * the entry with the largest cap is filled to it, approximating the
+ * standard squad.
  */
-export function defaultModelCounts(unit: Unit): Record<string, number> {
+export function defaultModelCounts(
+  unit: Unit,
+  sizeId?: string,
+): Record<string, number> {
+  const size = sizeFor(unit, sizeId)
+  if (size) {
+    return Object.fromEntries(
+      unit.models.map((m) => [m.id, size.models[m.id]?.default ?? 0]),
+    )
+  }
   const counts: Record<string, number> = {}
   for (const m of unit.models) counts[m.id] = m.min
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -59,12 +76,18 @@ const profileMatchesMode = (p: WeaponProfile, mode: AttackMode) =>
  * with several profiles in the same mode (e.g. plasma standard/supercharge)
  * default to the first profile only.
  */
-export function profileRows(unit: Unit, mode: AttackMode): ProfileRow[] {
-  const modelCounts = defaultModelCounts(unit)
+export function profileRows(
+  unit: Unit,
+  mode: AttackMode,
+  sizeId?: string,
+): ProfileRow[] {
+  const size = sizeFor(unit, sizeId)
+  const modelCounts = defaultModelCounts(unit, sizeId)
   const defaults = new Map<string, number>()
   const maxes = new Map<string, number>()
   for (const model of unit.models) {
     const n = modelCounts[model.id]
+    const modelMax = size ? (size.models[model.id]?.max ?? 0) : model.max
     for (const ref of model.weapons) {
       defaults.set(
         ref.weaponId,
@@ -72,7 +95,7 @@ export function profileRows(unit: Unit, mode: AttackMode): ProfileRow[] {
       )
       maxes.set(
         ref.weaponId,
-        (maxes.get(ref.weaponId) ?? 0) + model.max * ref.max,
+        (maxes.get(ref.weaponId) ?? 0) + modelMax * ref.max,
       )
     }
   }
@@ -89,12 +112,15 @@ export function profileRows(unit: Unit, mode: AttackMode): ProfileRow[] {
     const matching = weapon.profiles.filter((p) => profileMatchesMode(p, mode))
     matching.forEach((profile, i) => {
       const def = i === 0 ? (defaults.get(weapon.id) ?? 0) : 0
+      const max = Math.max(maxes.get(weapon.id) ?? 0, def)
+      // with explicit size options a weapon can be unavailable at this size
+      if (size && max === 0) return
       rows.push({
         key: `${weapon.id}:${weapon.profiles.indexOf(profile)}`,
         weaponName: weapon.name,
         profile,
         defaultCount: def,
-        maxCount: Math.max(maxes.get(weapon.id) ?? 0, def, 1),
+        maxCount: Math.max(max, 1),
       })
     })
   }
@@ -104,6 +130,59 @@ export function profileRows(unit: Unit, mode: AttackMode): ProfileRow[] {
       a.weaponName.localeCompare(b.weaponName),
   )
   return rows
+}
+
+/** A cap on the combined count of several weapon rows, derived from a
+ * unit-size pool (e.g. "up to 2 special weapons per 10 models") */
+export interface RowPool {
+  label: string
+  max: number
+  keys: string[]
+}
+
+/**
+ * Translate the active size's model pools into weapon-row caps: a row joins
+ * a pool when every model that can carry that weapon (at this size) belongs
+ * to the pool, so its counts spend the pool's budget.
+ */
+export function rowPools(
+  unit: Unit,
+  mode: AttackMode,
+  sizeId?: string,
+): RowPool[] {
+  const size = sizeFor(unit, sizeId)
+  if (!size?.pools || size.pools.length === 0) return []
+  const contributors = new Map<string, Set<string>>()
+  for (const model of unit.models) {
+    if ((size.models[model.id]?.max ?? 0) === 0) continue
+    for (const ref of model.weapons) {
+      if (ref.max <= 0) continue
+      let set = contributors.get(ref.weaponId)
+      if (!set) {
+        set = new Set()
+        contributors.set(ref.weaponId, set)
+      }
+      set.add(model.id)
+    }
+  }
+  const rows = profileRows(unit, mode, sizeId)
+  return size.pools
+    .map((pool) => {
+      const ids = new Set(pool.modelIds)
+      const keys = rows
+        .filter((r) => {
+          const weaponId = r.key.slice(0, r.key.lastIndexOf(':'))
+          const carriers = contributors.get(weaponId)
+          return (
+            carriers !== undefined &&
+            carriers.size > 0 &&
+            [...carriers].every((id) => ids.has(id))
+          )
+        })
+        .map((r) => r.key)
+      return { label: pool.label, max: pool.max, keys }
+    })
+    .filter((p) => p.keys.length > 0)
 }
 
 /** Manual overrides for defender traits; undefined means "from data" */
@@ -153,8 +232,9 @@ export interface DefenseGroup {
   defaultCount: number
 }
 
-export function defenseGroups(unit: Unit): DefenseGroup[] {
-  const modelDefaults = defaultModelCounts(unit)
+export function defenseGroups(unit: Unit, sizeId?: string): DefenseGroup[] {
+  const size = sizeFor(unit, sizeId)
+  const modelDefaults = defaultModelCounts(unit, sizeId)
   const byKey = new Map<string, DefenseGroup & { ids: Set<string> }>()
   for (const s of unit.statlines) {
     const key = `${s.T}|${s.SV}|${s.W}`
@@ -179,13 +259,17 @@ export function defenseGroups(unit: Unit): DefenseGroup[] {
   for (const m of unit.models) {
     const group = groups.find((g) => g.ids.has(m.statlineId))
     if (group) {
-      group.max += m.max
+      group.max += size ? (size.models[m.id]?.max ?? 0) : m.max
       group.defaultCount += modelDefaults[m.id]
     }
   }
   const total = groups.reduce((sum, g) => sum + g.defaultCount, 0)
   if (total === 0 && groups[0]) groups[0].defaultCount = 1
-  for (const g of groups) g.max = Math.max(g.max, g.defaultCount, 1)
+  for (const g of groups) {
+    // optional specialists can't push the unit past its composition size
+    if (size && total > 0) g.max = Math.min(g.max, total)
+    g.max = Math.max(g.max, g.defaultCount, 1)
+  }
   return groups.map((g) => {
     const { ids, ...rest } = g
     void ids
