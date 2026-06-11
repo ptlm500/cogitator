@@ -194,7 +194,7 @@ export function rowPools(
       // rifle) fall out of the mapping, which can leave a budget that
       // nothing meaningful spends — showing it would just confuse
       .filter((p) => p.keys.length > 0 && p.capacity > p.max)
-      .map(({ capacity: _capacity, ...pool }) => pool)
+      .map((p) => ({ label: p.label, max: p.max, keys: p.keys }))
   )
 }
 
