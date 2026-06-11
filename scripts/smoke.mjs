@@ -172,6 +172,58 @@ if (Number(woundsAfter) <= Number(woundsBefore)) {
 }
 console.log(`granted ability works: wounds ${woundsBefore} -> ${woundsAfter}`)
 
+// global hit re-roll raises hits; the rifle can opt back out per-profile
+const rrBase = await stat(page, 'Hits')
+await page
+  .getByRole('group', { name: 'Re-roll hits', exact: true })
+  .getByRole('button', { name: 'Fails', exact: true })
+  .click()
+await page.waitForTimeout(200)
+const rrGlobal = await stat(page, 'Hits')
+if (Number(rrGlobal) <= Number(rrBase)) {
+  throw new Error(`global re-roll had no effect: ${rrBase} -> ${rrGlobal}`)
+}
+await page
+  .getByRole('group', { name: 'Bolt Rifle re-roll hits', exact: true })
+  .getByRole('button', { name: '—', exact: true })
+  .click()
+await page.waitForTimeout(200)
+const rrOptOut = await stat(page, 'Hits')
+if (Number(rrOptOut) >= Number(rrGlobal)) {
+  throw new Error(
+    `per-profile re-roll opt-out had no effect: ${rrGlobal} -> ${rrOptOut}`,
+  )
+}
+console.log(`re-rolls work: hits ${rrBase} -> ${rrGlobal} -> ${rrOptOut}`)
+await page
+  .getByRole('group', { name: 'Bolt Rifle re-roll hits', exact: true })
+  .getByRole('button', { name: 'Glob', exact: true })
+  .click()
+await page
+  .getByRole('group', { name: 'Re-roll hits', exact: true })
+  .getByRole('button', { name: '—', exact: true })
+  .click()
+
+// damage re-roll: the D3 krak grenade launcher benefits, flat D1 does not
+await page.getByLabel('Increase ➤ Astartes grenade launcher - krak').click()
+await page.waitForTimeout(200)
+const rdBase = await stat(page, 'Damage')
+await page
+  .getByRole('group', { name: 'Re-roll damage', exact: true })
+  .getByRole('button', { name: 'All', exact: true })
+  .click()
+await page.waitForTimeout(200)
+const rdAfter = await stat(page, 'Damage')
+if (Number(rdAfter) <= Number(rdBase)) {
+  throw new Error(`damage re-roll had no effect: ${rdBase} -> ${rdAfter}`)
+}
+console.log(`damage re-roll works: damage ${rdBase} -> ${rdAfter}`)
+await page
+  .getByRole('group', { name: 'Re-roll damage', exact: true })
+  .getByRole('button', { name: '—', exact: true })
+  .click()
+await page.getByLabel('Decrease ➤ Astartes grenade launcher - krak').click()
+
 // worsening a profile's BS stacks with the +1 hit modifier
 const hitsBeforeSkill = await stat(page, 'Hits')
 await page.getByLabel('Increase Bolt Rifle skill').click()

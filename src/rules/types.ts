@@ -18,6 +18,11 @@ export interface WeaponProfileInput {
   damage: string
   /** Modifier to the Damage characteristic (applied per roll, min 1) */
   damageBonus?: number
+  /** Per-profile re-rolls; when set they take precedence over the
+   * AttackContext's global re-roll settings */
+  rerollHits?: RerollMode
+  rerollWounds?: RerollMode
+  rerollDamage?: DamageRerollMode
   keywords: string[]
 }
 
@@ -54,7 +59,13 @@ export interface DefenderInput {
   keywords?: string[]
 }
 
-export type RerollMode = 'none' | 'ones' | 'fails'
+/** 'noncrits' re-rolls everything that isn't a critical — failed rolls and
+ * plain successes alike — to fish for crits (Sustained/Lethal/Anti). */
+export type RerollMode = 'none' | 'ones' | 'fails' | 'noncrits'
+
+/** Damage re-rolls: 'ones' re-rolls a total of 1, 'all' re-rolls any
+ * result below the distribution's mean (optimal use of a full re-roll). */
+export type DamageRerollMode = 'none' | 'ones' | 'all'
 
 /** Manual modifiers and battlefield situation toggles */
 export interface AttackContext {
@@ -64,6 +75,7 @@ export interface AttackContext {
   woundMod?: number
   rerollHits?: RerollMode
   rerollWounds?: RerollMode
+  rerollDamage?: DamageRerollMode
   /** Unmodified hit roll needed for a critical hit (default 6) */
   critHitOn?: number
   /** Target is within half range (Rapid Fire, Melta) */

@@ -1,4 +1,8 @@
-import type { AttackContext, RerollMode } from '@/rules/types.ts'
+import type {
+  AttackContext,
+  DamageRerollMode,
+  RerollMode,
+} from '@/rules/types.ts'
 import type { AttackMode, DefenderOverrides } from './simulation.ts'
 
 /** Everything needed to reconstruct the calculator's state from a URL */
@@ -23,6 +27,10 @@ export interface SharedState {
   damageBonus?: Record<string, number>
   /** Per-row granted ability codes */
   extras?: Record<string, string[]>
+  /** Per-row re-roll overrides (absent rows inherit the global setting) */
+  rerollHits?: Record<string, RerollMode>
+  rerollWounds?: Record<string, RerollMode>
+  rerollDamage?: Record<string, DamageRerollMode>
   defenderFaction?: string
   defenderUnitId?: string
   defenderCharIds?: string[]
@@ -51,7 +59,49 @@ const SITUATION_FLAGS: [keyof AttackContext, string][] = [
   ['indirectFire', 'i'],
 ]
 
-const REROLLS: RerollMode[] = ['none', 'ones', 'fails']
+const REROLLS: RerollMode[] = ['none', 'ones', 'fails', 'noncrits']
+const DAMAGE_REROLLS: DamageRerollMode[] = ['none', 'ones', 'all']
+
+/** Single-letter URL codes for per-row re-roll values */
+const REROLL_CODES: [RerollMode, string][] = [
+  ['none', 'n'],
+  ['ones', 'o'],
+  ['fails', 'f'],
+  ['noncrits', 'c'],
+]
+const DAMAGE_REROLL_CODES: [DamageRerollMode, string][] = [
+  ['none', 'n'],
+  ['ones', 'o'],
+  ['all', 'a'],
+]
+
+function encodeKeyed<T>(
+  record: Record<string, T> | undefined,
+  codes: [T, string][],
+): string | undefined {
+  const entries = Object.entries(record ?? {})
+    .map(([k, v]) => {
+      const code = codes.find(([value]) => value === v)?.[1]
+      return code ? `${k}:${code}` : undefined
+    })
+    .filter(Boolean)
+  return entries.length > 0 ? entries.join(',') : undefined
+}
+
+function decodeKeyed<T>(
+  raw: string | null,
+  codes: [T, string][],
+): Record<string, T> | undefined {
+  if (!raw) return undefined
+  const out: Record<string, T> = {}
+  for (const entry of raw.split(',')) {
+    const i = entry.lastIndexOf(':')
+    if (i <= 0) continue
+    const match = codes.find(([, code]) => code === entry.slice(i + 1))
+    if (match) out[entry.slice(0, i)] = match[0]
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
 
 const saveValue = (v: number | 'none' | undefined): string | undefined =>
   v === undefined ? undefined : v === 'none' ? '0' : String(v)
@@ -100,6 +150,9 @@ export function serializeState(state: SharedState): string {
   if (extras.length > 0) {
     set('xk', extras.map(([k, codes]) => `${k}:${codes.join('.')}`).join(','))
   }
+  set('rrh', encodeKeyed(state.rerollHits, REROLL_CODES))
+  set('rrw', encodeKeyed(state.rerollWounds, REROLL_CODES))
+  set('rrd', encodeKeyed(state.rerollDamage, DAMAGE_REROLL_CODES))
   set('df', state.defenderFaction)
   set('du', state.defenderUnitId)
   if (state.defenderCharIds && state.defenderCharIds.length > 0) {
@@ -123,6 +176,8 @@ export function serializeState(state: SharedState): string {
   if (ctx.rerollHits && ctx.rerollHits !== 'none') set('rh', ctx.rerollHits)
   if (ctx.rerollWounds && ctx.rerollWounds !== 'none')
     set('rw', ctx.rerollWounds)
+  if (ctx.rerollDamage && ctx.rerollDamage !== 'none')
+    set('rd', ctx.rerollDamage)
   if (ctx.critHitOn && ctx.critHitOn !== 6) set('ch', ctx.critHitOn)
 
   const ovr = state.overrides ?? {}
@@ -177,6 +232,9 @@ export function parseState(hash: string): SharedState {
     }
     if (Object.keys(extras).length > 0) state.extras = extras
   }
+  state.rerollHits = decodeKeyed(p.get('rrh'), REROLL_CODES)
+  state.rerollWounds = decodeKeyed(p.get('rrw'), REROLL_CODES)
+  state.rerollDamage = decodeKeyed(p.get('rrd'), DAMAGE_REROLL_CODES)
   state.defenderFaction = get('df')
   state.defenderUnitId = get('du')
   const dc = p.get('dc')
@@ -203,6 +261,8 @@ export function parseState(hash: string): SharedState {
   if (rh && REROLLS.includes(rh)) context.rerollHits = rh
   const rw = p.get('rw') as RerollMode | null
   if (rw && REROLLS.includes(rw)) context.rerollWounds = rw
+  const rd = p.get('rd') as DamageRerollMode | null
+  if (rd && DAMAGE_REROLLS.includes(rd)) context.rerollDamage = rd
   if (p.get('ch') === '5') context.critHitOn = 5
   if (Object.keys(context).length > 0) state.context = context
 

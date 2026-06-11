@@ -1,5 +1,7 @@
 interface SegmentedControlProps<T extends string | number> {
   label: string
+  /** Accessible group name when the visible label isn't unique */
+  ariaLabel?: string
   options: { value: T; label: string }[]
   value: T
   onChange: (value: T) => void
@@ -7,12 +9,17 @@ interface SegmentedControlProps<T extends string | number> {
 
 export function SegmentedControl<T extends string | number>({
   label,
+  ariaLabel,
   options,
   value,
   onChange,
 }: SegmentedControlProps<T>) {
   return (
-    <div className="flex flex-col gap-1" role="group" aria-label={label}>
+    <div
+      className="flex flex-col gap-1"
+      role="group"
+      aria-label={ariaLabel ?? label}
+    >
       <span className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">
         {label}
       </span>

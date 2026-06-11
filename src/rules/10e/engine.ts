@@ -19,10 +19,12 @@ import {
 } from '../lib/dist.ts'
 import { parseKeywords, type ParsedKeywords } from '../lib/keywords.ts'
 import {
+  applyDamageReroll,
   buildPerDieBranches,
   effectiveToughness,
   foldDefences,
   rollOutcomes,
+  strongerReroll,
   woundTarget,
   type WoundBranch,
 } from '../lib/sequence.ts'
@@ -111,7 +113,7 @@ function resolveWeapon(
         profile.skill,
         hitMod,
         critHitOn,
-        context.rerollHits ?? 'none',
+        profile.rerollHits ?? context.rerollHits ?? 'none',
       )
 
   // wound roll
@@ -125,9 +127,14 @@ function resolveWeapon(
   const critWoundOn = Math.max(2, Math.min(6, ...antiThresholds, 6))
   const lanceBonus = kw.lance && context.charged && !ranged ? 1 : 0
   const woundMod = clampMod((context.woundMod ?? 0) + lanceBonus)
-  const rerollWounds = kw.twinLinked
-    ? 'fails'
-    : (context.rerollWounds ?? 'none')
+  // per-profile setting wins; otherwise Twin-linked and the global grant
+  // both apply and the wider re-roll subsumes the narrower
+  const rerollWounds =
+    profile.rerollWounds ??
+    strongerReroll(
+      kw.twinLinked ? 'fails' : 'none',
+      context.rerollWounds ?? 'none',
+    )
   const wound = rollOutcomes(
     woundTarget(profile.strength, effectiveToughness(defender)),
     woundMod,
@@ -155,6 +162,10 @@ function resolveWeapon(
   if (kw.melta && context.halfRange && ranged) {
     baseDamage = convolve(baseDamage, kw.melta)
   }
+  baseDamage = applyDamageReroll(
+    baseDamage,
+    profile.rerollDamage ?? context.rerollDamage ?? 'none',
+  )
   const reduction = defender.damageReduction ?? 0
   const specs = defender.segments.map((seg) => ({
     fail: failSaveProb(seg.save, seg.invuln, profile.ap, saveOptions),

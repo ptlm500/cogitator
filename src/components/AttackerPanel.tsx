@@ -9,10 +9,41 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs/tabs'
 import { useState, type ReactNode } from 'react'
 import type { Unit } from '@/data/types.ts'
 import type { AttackMode, ProfileRow } from '@/lib/simulation.ts'
+import type { DamageRerollMode, RerollMode } from '@/rules/types.ts'
 import { EXTRA_ABILITIES, extraLabels } from '@/lib/weaponExtras.ts'
 import { NumberStepper } from './NumberStepper.tsx'
 import { CharacterSelect } from './CharacterSelect.tsx'
+import { SegmentedControl } from './SegmentedControl.tsx'
 import { UnitSelect } from './UnitSelect.tsx'
+
+/** 'inherit' = use the global Modifiers setting for this row */
+type RowReroll<T> = T | 'inherit'
+
+const ROW_REROLL_OPTIONS: { value: RowReroll<RerollMode>; label: string }[] = [
+  { value: 'inherit', label: 'Glob' },
+  { value: 'none', label: '—' },
+  { value: 'ones', label: '1s' },
+  { value: 'fails', label: 'Fails' },
+  { value: 'noncrits', label: 'Fish' },
+]
+
+const ROW_DAMAGE_REROLL_OPTIONS: {
+  value: RowReroll<DamageRerollMode>
+  label: string
+}[] = [
+  { value: 'inherit', label: 'Glob' },
+  { value: 'none', label: '—' },
+  { value: 'ones', label: '1s' },
+  { value: 'all', label: 'All' },
+]
+
+const REROLL_CHIP: Record<string, string> = {
+  none: 'Off',
+  ones: '1s',
+  fails: 'Fails',
+  noncrits: 'Fish',
+  all: 'All',
+}
 
 interface AttackerPanelProps {
   edition: string
@@ -37,6 +68,10 @@ interface AttackerPanelProps {
   damageBonus: Record<string, number>
   /** Granted ability codes by row key (see weaponExtras.ts) */
   extras: Record<string, string[]>
+  /** Per-row re-roll overrides by row key (absent = use global setting) */
+  rerollHits: Record<string, RerollMode>
+  rerollWounds: Record<string, RerollMode>
+  rerollDamage: Record<string, DamageRerollMode>
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
   onAttachedChange: (index: number, unitId: string | undefined) => void
@@ -48,6 +83,12 @@ interface AttackerPanelProps {
   onApChange: (key: string, ap: number | undefined) => void
   onDamageBonusChange: (key: string, bonus: number | undefined) => void
   onExtraToggle: (key: string, code: string) => void
+  onRerollHitsChange: (key: string, mode: RerollMode | undefined) => void
+  onRerollWoundsChange: (key: string, mode: RerollMode | undefined) => void
+  onRerollDamageChange: (
+    key: string,
+    mode: DamageRerollMode | undefined,
+  ) => void
 }
 
 function Tweak({ label, children }: { label: string; children: ReactNode }) {
@@ -87,6 +128,9 @@ export function AttackerPanel({
   aps,
   damageBonus,
   extras,
+  rerollHits,
+  rerollWounds,
+  rerollDamage,
   onFactionChange,
   onUnitChange,
   onAttachedChange,
@@ -98,6 +142,9 @@ export function AttackerPanel({
   onApChange,
   onDamageBonusChange,
   onExtraToggle,
+  onRerollHitsChange,
+  onRerollWoundsChange,
+  onRerollDamageChange,
 }: AttackerPanelProps) {
   const [abilityEditor, setAbilityEditor] = useState<string | null>(null)
   return (
@@ -165,6 +212,18 @@ export function AttackerPanel({
                   }
                   const db = damageBonus[row.key] ?? 0
                   if (db !== 0) modChips.push(`D${db > 0 ? '+' : ''}${db}`)
+                  const rrh = rerollHits[row.key]
+                  if (rrh !== undefined) {
+                    modChips.push(`RR-H ${REROLL_CHIP[rrh]}`)
+                  }
+                  const rrw = rerollWounds[row.key]
+                  if (rrw !== undefined) {
+                    modChips.push(`RR-W ${REROLL_CHIP[rrw]}`)
+                  }
+                  const rrd = rerollDamage[row.key]
+                  if (rrd !== undefined) {
+                    modChips.push(`RR-D ${REROLL_CHIP[rrd]}`)
+                  }
                   const editing = abilityEditor === row.key
                   const modified = modChips.length > 0
                   return (
@@ -310,6 +369,44 @@ export function AttackerPanel({
                                   label={`${row.profile.name} damage bonus`}
                                 />
                               </Tweak>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                              <SegmentedControl
+                                label="Re-roll hits"
+                                ariaLabel={`${row.profile.name} re-roll hits`}
+                                options={ROW_REROLL_OPTIONS}
+                                value={rrh ?? 'inherit'}
+                                onChange={(v) =>
+                                  onRerollHitsChange(
+                                    row.key,
+                                    v === 'inherit' ? undefined : v,
+                                  )
+                                }
+                              />
+                              <SegmentedControl
+                                label="Re-roll wounds"
+                                ariaLabel={`${row.profile.name} re-roll wounds`}
+                                options={ROW_REROLL_OPTIONS}
+                                value={rrw ?? 'inherit'}
+                                onChange={(v) =>
+                                  onRerollWoundsChange(
+                                    row.key,
+                                    v === 'inherit' ? undefined : v,
+                                  )
+                                }
+                              />
+                              <SegmentedControl
+                                label="Re-roll damage"
+                                ariaLabel={`${row.profile.name} re-roll damage`}
+                                options={ROW_DAMAGE_REROLL_OPTIONS}
+                                value={rrd ?? 'inherit'}
+                                onChange={(v) =>
+                                  onRerollDamageChange(
+                                    row.key,
+                                    v === 'inherit' ? undefined : v,
+                                  )
+                                }
+                              />
                             </div>
                             <p className="mt-2 flex flex-wrap gap-1">
                               {EXTRA_ABILITIES.map((ability) => {

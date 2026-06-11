@@ -71,6 +71,9 @@ export function computeScenario(
       ap: state.ap,
       damageBonus: state.damageBonus,
       extras: state.extras,
+      rerollHits: state.rerollHits,
+      rerollWounds: state.rerollWounds,
+      rerollDamage: state.rerollDamage,
     },
     {
       unit: defender,

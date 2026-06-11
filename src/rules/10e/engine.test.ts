@@ -304,6 +304,83 @@ describe('resolveAttacks: classic mathhammer cases', () => {
     expect(r.expected.wounds).toBeCloseTo(4.5, 12)
   })
 
+  it('re-rolls the damage roll, keeping results above the mean', () => {
+    // 1 auto-hit, S8 v T4 (2+), no save, D6 re-rolled when below average:
+    // E[damage] = 5/6 * 4.25
+    const r = resolveAttacks(
+      [
+        {
+          profile: ranged({
+            attacks: '1',
+            strength: 8,
+            damage: 'D6',
+            keywords: ['Torrent'],
+          }),
+          count: 1,
+        },
+      ],
+      defender({ save: 7, wounds: 30, models: 1 }),
+      { rerollDamage: 'all' },
+    )
+    expect(r.expected.damage).toBeCloseTo((5 / 6) * 4.25, 12)
+  })
+
+  it('per-profile re-rolls take precedence over the context', () => {
+    const target = defender({ save: 7, wounds: 30, models: 1 })
+    // profile opts out of the global full hit re-roll
+    const optOut = resolveAttacks(
+      [{ profile: ranged({ attacks: '6', rerollHits: 'none' }), count: 1 }],
+      target,
+      { rerollHits: 'fails' },
+    )
+    expect(optOut.expected.hits).toBeCloseTo(3, 12)
+    // profile gains a re-roll the context doesn't grant
+    const optIn = resolveAttacks(
+      [{ profile: ranged({ attacks: '6', rerollHits: 'fails' }), count: 1 }],
+      target,
+    )
+    expect(optIn.expected.hits).toBeCloseTo(6 * (3 / 4), 12)
+    // profile keeps its flat damage while the context re-rolls D6 damage
+    const flat = resolveAttacks(
+      [
+        {
+          profile: ranged({
+            attacks: '1',
+            strength: 8,
+            damage: 'D6',
+            keywords: ['Torrent'],
+            rerollDamage: 'none',
+          }),
+          count: 1,
+        },
+      ],
+      target,
+      { rerollDamage: 'all' },
+    )
+    expect(flat.expected.damage).toBeCloseTo((5 / 6) * 3.5, 12)
+  })
+
+  it('crit fishing feeds sustained hits', () => {
+    // 36 auto... 36 attacks at 3+, crits 5+, Sustained 1, fishing:
+    // per die: crit 2/6 + 4/6*2/6 = 20/36 (two hits), hit 8/36 (one)
+    const r = resolveAttacks(
+      [
+        {
+          profile: ranged({
+            attacks: '36',
+            skill: 3,
+            keywords: ['Sustained Hits 1'],
+            rerollHits: 'noncrits',
+          }),
+          count: 1,
+        },
+      ],
+      defender({ wounds: 200, models: 1 }),
+      { critHitOn: 5 },
+    )
+    expect(r.expected.hits).toBeCloseTo(36 * ((8 + 2 * 20) / 36), 12)
+  })
+
   it('feel no pain discounts damage', () => {
     // 1 auto-hit, S8 v T4 (2+), no save, D3, FNP 5+:
     // E[damage] = 5/6 * 3 * 2/3 = 5/3

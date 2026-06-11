@@ -1,6 +1,6 @@
 // Attack-sequence helpers shared between edition engines.
 import { compound, mapValues, type Dist } from './dist.ts'
-import type { DefenderInput, RerollMode } from '../types.ts'
+import type { DamageRerollMode, DefenderInput, RerollMode } from '../types.ts'
 
 export interface RollOutcome {
   miss: number
@@ -30,19 +30,62 @@ export function rollOutcomes(
     else if (u === 6 || u + mod >= needed) base.hit += p
     else base.miss += p
   }
-  let rerolledMass = 0
+  let massFromMiss = 0
+  let massFromHit = 0
   if (reroll === 'ones') {
     // an unmodified 1 is always a failure (critOn is at least 2)
-    rerolledMass = 1 / 6
+    massFromMiss = 1 / 6
   } else if (reroll === 'fails') {
-    rerolledMass = base.miss
+    massFromMiss = base.miss
+  } else if (reroll === 'noncrits') {
+    // fish for crits: re-roll failures and plain successes alike
+    massFromMiss = base.miss
+    massFromHit = base.hit
   }
-  if (rerolledMass === 0) return base
+  const mass = massFromMiss + massFromHit
+  if (mass === 0) return base
   return {
-    miss: base.miss - rerolledMass + rerolledMass * base.miss,
-    hit: base.hit + rerolledMass * base.hit,
-    crit: base.crit + rerolledMass * base.crit,
+    miss: base.miss - massFromMiss + mass * base.miss,
+    hit: base.hit - massFromHit + mass * base.hit,
+    crit: base.crit + mass * base.crit,
   }
+}
+
+const REROLL_RANK: Record<RerollMode, number> = {
+  none: 0,
+  ones: 1,
+  fails: 2,
+  noncrits: 3,
+}
+
+/** The more permissive of two re-roll grants (a weapon's Twin-linked and a
+ * global ability both apply; the wider one subsumes the narrower) */
+export function strongerReroll(a: RerollMode, b: RerollMode): RerollMode {
+  return REROLL_RANK[a] >= REROLL_RANK[b] ? a : b
+}
+
+/**
+ * Apply a damage re-roll to a damage distribution. 'ones' re-rolls a total
+ * result of 1; 'all' models a full "re-roll the Damage roll" played
+ * optimally — re-roll whenever the result is below the distribution's mean.
+ * Re-rolls evaluate on the damage characteristic's total (e.g. for D6+1 a
+ * result of 1 cannot occur, so 'ones' never triggers).
+ */
+export function applyDamageReroll(dist: Dist, mode: DamageRerollMode): Dist {
+  if (mode === 'none') return dist
+  let mass = 0
+  let kept: Dist
+  if (mode === 'ones') {
+    mass = dist[1] ?? 0
+    if (mass === 0) return dist
+    kept = dist.map((p, v) => (v === 1 ? 0 : p))
+  } else {
+    const mean = dist.reduce((e, p, v) => e + p * v, 0)
+    kept = dist.map((p, v) => (v < mean ? 0 : p))
+    mass = 1 - kept.reduce((a, b) => a + b, 0)
+    if (mass === 0) return dist
+  }
+  return dist.map((p, v) => (kept[v] ?? 0) + mass * p)
 }
 
 /** Wound roll needed for strength vs toughness */

@@ -26,7 +26,11 @@ import {
 import { editionUiFor } from '@/lib/editions.ts'
 import { toggleExtra } from '@/lib/weaponExtras.ts'
 import { parseState, serializeState } from '@/lib/urlState.ts'
-import type { AttackContext } from '@/rules/types.ts'
+import type {
+  AttackContext,
+  DamageRerollMode,
+  RerollMode,
+} from '@/rules/types.ts'
 
 const DEFAULT_EDITION = '10e'
 
@@ -43,6 +47,9 @@ function App() {
     ap: initial.ap,
     damageBonus: initial.damageBonus,
     extras: initial.extras,
+    rerollHits: initial.rerollHits,
+    rerollWounds: initial.rerollWounds,
+    rerollDamage: initial.rerollDamage,
     modelCounts: initial.modelCounts,
     legacyModels: initial.legacyModels,
     defToughness: initial.defToughness,
@@ -66,6 +73,13 @@ function App() {
   const [aps, setAps] = useState<Record<string, number>>({})
   const [damageBonus, setDamageBonus] = useState<Record<string, number>>({})
   const [extras, setExtras] = useState<Record<string, string[]>>({})
+  const [rerollHits, setRerollHits] = useState<Record<string, RerollMode>>({})
+  const [rerollWounds, setRerollWounds] = useState<Record<string, RerollMode>>(
+    {},
+  )
+  const [rerollDamage, setRerollDamage] = useState<
+    Record<string, DamageRerollMode>
+  >({})
 
   const [defenderFaction, setDefenderFaction] = useState(
     initial.defenderFaction,
@@ -140,6 +154,9 @@ function App() {
       setAps(pending.ap ?? {})
       setDamageBonus(pending.damageBonus ?? {})
       setExtras(pending.extras ?? {})
+      setRerollHits(pending.rerollHits ?? {})
+      setRerollWounds(pending.rerollWounds ?? {})
+      setRerollDamage(pending.rerollDamage ?? {})
       // URL-provided values are for the first real loadout only
       if (
         pending.counts ||
@@ -148,7 +165,10 @@ function App() {
         pending.strength ||
         pending.ap ||
         pending.damageBonus ||
-        pending.extras
+        pending.extras ||
+        pending.rerollHits ||
+        pending.rerollWounds ||
+        pending.rerollDamage
       ) {
         setPending((p) => ({
           ...p,
@@ -159,6 +179,9 @@ function App() {
           ap: undefined,
           damageBonus: undefined,
           extras: undefined,
+          rerollHits: undefined,
+          rerollWounds: undefined,
+          rerollDamage: undefined,
         }))
       }
     } else {
@@ -169,6 +192,9 @@ function App() {
       setAps({})
       setDamageBonus({})
       setExtras({})
+      setRerollHits({})
+      setRerollWounds({})
+      setRerollDamage({})
     }
   }
 
@@ -223,6 +249,9 @@ function App() {
         ap: aps,
         damageBonus,
         extras,
+        rerollHits,
+        rerollWounds,
+        rerollDamage,
       },
       {
         unit: defender,
@@ -251,6 +280,9 @@ function App() {
     aps,
     damageBonus,
     extras,
+    rerollHits,
+    rerollWounds,
+    rerollDamage,
     modelCounts,
     defToughness,
     defSave,
@@ -280,6 +312,9 @@ function App() {
       ap: aps,
       damageBonus,
       extras,
+      rerollHits,
+      rerollWounds,
+      rerollDamage,
       defenderFaction,
       defenderUnitId,
       defenderCharIds,
@@ -305,6 +340,9 @@ function App() {
     aps,
     damageBonus,
     extras,
+    rerollHits,
+    rerollWounds,
+    rerollDamage,
     defenderFaction,
     defenderUnitId,
     defenderCharIds,
@@ -404,6 +442,9 @@ function App() {
           aps={aps}
           damageBonus={damageBonus}
           extras={extras}
+          rerollHits={rerollHits}
+          rerollWounds={rerollWounds}
+          rerollDamage={rerollDamage}
           onFactionChange={(f) => {
             setAttackerFaction(f)
             setAttackerUnitId(undefined)
@@ -466,6 +507,30 @@ function App() {
             setExtras((s) => {
               const next = { ...s, [key]: toggleExtra(s[key] ?? [], code) }
               if (next[key].length === 0) delete next[key]
+              return next
+            })
+          }
+          onRerollHitsChange={(key, mode) =>
+            setRerollHits((s) => {
+              const next = { ...s }
+              if (mode === undefined) delete next[key]
+              else next[key] = mode
+              return next
+            })
+          }
+          onRerollWoundsChange={(key, mode) =>
+            setRerollWounds((s) => {
+              const next = { ...s }
+              if (mode === undefined) delete next[key]
+              else next[key] = mode
+              return next
+            })
+          }
+          onRerollDamageChange={(key, mode) =>
+            setRerollDamage((s) => {
+              const next = { ...s }
+              if (mode === undefined) delete next[key]
+              else next[key] = mode
               return next
             })
           }

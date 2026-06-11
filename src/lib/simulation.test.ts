@@ -370,6 +370,26 @@ describe('runSimulation', () => {
     ).toBeUndefined()
   })
 
+  it('per-row re-rolls override the global context setting', () => {
+    const rows = profileRows(unit, 'shooting')
+    const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
+    const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
+    const defender = { unit, modelCounts: { s1: 5 } }
+    // global full hit re-roll; the rifle opts out
+    const result = runSimulation(
+      '10e',
+      rows,
+      { counts, rerollHits: { [rifleKey]: 'none' } },
+      defender,
+      { rerollHits: 'fails' },
+    )!
+    // 18 rifle shots at 3+ plain, pistol at 3+ re-rolling fails
+    expect(result.expected.hits).toBeCloseTo(
+      18 * (4 / 6) + (4 / 6 + (2 / 6) * (4 / 6)),
+      12,
+    )
+  })
+
   it('applies attack bonuses per profile', () => {
     const rows = profileRows(unit, 'shooting')
     const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))

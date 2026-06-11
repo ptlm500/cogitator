@@ -6,7 +6,11 @@ import {
 } from '@/components/ui/panel/panel'
 import type { SituationToggle } from '@/lib/editions.ts'
 import type { DefenderOverrides } from '@/lib/simulation.ts'
-import type { AttackContext, RerollMode } from '@/rules/types.ts'
+import type {
+  AttackContext,
+  DamageRerollMode,
+  RerollMode,
+} from '@/rules/types.ts'
 import { SegmentedControl } from './SegmentedControl.tsx'
 
 interface ModifiersPanelProps {
@@ -26,7 +30,16 @@ const MOD_OPTIONS = [
 const REROLL_OPTIONS: { value: RerollMode; label: string }[] = [
   { value: 'none', label: '—' },
   { value: 'ones', label: '1s' },
-  { value: 'fails', label: 'All' },
+  { value: 'fails', label: 'Fails' },
+  // re-roll non-criticals too, fishing for crits
+  { value: 'noncrits', label: 'Fish' },
+]
+
+const DAMAGE_REROLL_OPTIONS: { value: DamageRerollMode; label: string }[] = [
+  { value: 'none', label: '—' },
+  { value: 'ones', label: '1s' },
+  // a full damage re-roll, used whenever the result is below average
+  { value: 'all', label: 'All' },
 ]
 
 export function ModifiersPanel({
@@ -100,6 +113,12 @@ export function ModifiersPanel({
             options={REROLL_OPTIONS}
             value={context.rerollWounds ?? 'none'}
             onChange={(v) => ctx({ rerollWounds: v })}
+          />
+          <SegmentedControl
+            label="Re-roll damage"
+            options={DAMAGE_REROLL_OPTIONS}
+            value={context.rerollDamage ?? 'none'}
+            onChange={(v) => ctx({ rerollDamage: v })}
           />
           <SegmentedControl
             label="Crit hits on"

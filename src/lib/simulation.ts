@@ -2,8 +2,10 @@ import type { Unit, WeaponProfile } from '@/data/types.ts'
 import type {
   AttackContext,
   AttackResult,
+  DamageRerollMode,
   DefenderInput,
   DefenderSegment,
+  RerollMode,
   WeaponInput,
   WeaponProfileInput,
 } from '@/rules/types.ts'
@@ -289,6 +291,11 @@ export interface RowOverrides {
   damageBonus?: Record<string, number>
   /** Granted ability codes (see weaponExtras.ts) */
   extras?: Record<string, string[]>
+  /** Per-row re-rolls; set values take precedence over the global
+   * AttackContext settings, absent rows inherit them */
+  rerollHits?: Record<string, RerollMode>
+  rerollWounds?: Record<string, RerollMode>
+  rerollDamage?: Record<string, DamageRerollMode>
 }
 
 export function runSimulation(
@@ -309,12 +316,18 @@ export function runSimulation(
       const attackBonus = overrides.attackBonus?.[row.key]
       const damageBonus = overrides.damageBonus?.[row.key]
       const codes = overrides.extras?.[row.key]
+      const rerollHits = overrides.rerollHits?.[row.key]
+      const rerollWounds = overrides.rerollWounds?.[row.key]
+      const rerollDamage = overrides.rerollDamage?.[row.key]
       if (
         (skill !== undefined && profile.skill > 0) ||
         strength !== undefined ||
         ap !== undefined ||
         attackBonus ||
         damageBonus ||
+        rerollHits !== undefined ||
+        rerollWounds !== undefined ||
+        rerollDamage !== undefined ||
         (codes && codes.length > 0)
       ) {
         profile = {
@@ -325,6 +338,9 @@ export function runSimulation(
           ap: ap ?? profile.ap,
           attacksBonus: attackBonus,
           damageBonus,
+          rerollHits,
+          rerollWounds,
+          rerollDamage,
           keywords: codes?.length
             ? [...profile.keywords, ...extraKeywords(codes)]
             : profile.keywords,
