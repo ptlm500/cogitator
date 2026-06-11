@@ -528,7 +528,10 @@ describe('attached characters', () => {
     expect(r.slain[1]).toBeCloseTo(1 - 1 / 36, 12)
     // character dies only if both attacks wound and its 4+ save fails
     expect(r.characterSlain?.[0]).toBeCloseTo((25 / 36) * (1 / 2), 12)
-    expect(r.unitKilled).toBeCloseTo(r.characterSlain![0], 12)
+    // the unit is destroyed when its own (bodyguard) models are all dead,
+    // whether or not the character survives
+    expect(r.unitKilled).toBeCloseTo(1 - 1 / 36, 12)
+    expect(r.unitKilled).toBeGreaterThan(r.characterSlain![0])
   })
 
   it("applies the character's own feel no pain", () => {

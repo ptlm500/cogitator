@@ -108,7 +108,8 @@ export interface AttackResult {
   slain: number[]
   /** P(total effective damage = d) by index */
   damage: number[]
-  /** Probability the whole unit is destroyed (including any attached characters) */
+  /** Probability all of the defending unit's own models are destroyed
+   * (attached characters report separately via characterSlain) */
   unitKilled: number
   /** Probability each attached character is slain, in segment order
    * (only present when characters are attached) */

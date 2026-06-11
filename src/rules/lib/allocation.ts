@@ -163,7 +163,9 @@ export function summarize(
     },
     slain: slainDist,
     damage: damageDist,
-    unitKilled: state.dead,
+    // the unit is destroyed when all of its own models are dead; any
+    // attached characters report separately via characterSlain
+    unitKilled: slain[flat.bodyguards],
   }
   if (flat.characterSlots.length > 0) {
     result.characterSlain = flat.characterSlots.map((slot) => {

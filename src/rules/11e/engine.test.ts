@@ -336,7 +336,7 @@ function simulate(scenario: SimScenario, trials: number, seed: number) {
     for (let i = 0; i < flat.total; i++) damage += flat.wounds[i] - hp[i]
     sumDamage += damage
     sumSlain += Math.min(slot, flat.bodyguards)
-    if (slot >= flat.total) killed++
+    if (slot >= flat.bodyguards) killed++
     flat.characterSlots.forEach((cs, i) => {
       if (slot > cs) charKills[i]++
     })
