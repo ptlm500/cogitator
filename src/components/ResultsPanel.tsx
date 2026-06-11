@@ -14,6 +14,8 @@ interface ResultsPanelProps {
   defenderName?: string
   attachedNames?: string[]
   modelLayout?: ModelSlot[]
+  onSave?: () => void
+  saveDisabled?: boolean
 }
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
@@ -29,11 +31,28 @@ export function ResultsPanel({
   defenderName,
   attachedNames = [],
   modelLayout = [],
+  onSave,
+  saveDisabled = false,
 }: ResultsPanelProps) {
   return (
     <Panel>
-      <PanelHeader>
+      <PanelHeader className="flex items-center justify-between">
         <PanelTitle>Combat Analysis</PanelTitle>
+        {result && onSave && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saveDisabled}
+            title={
+              saveDisabled
+                ? 'Comparison list is full'
+                : 'Save this result for comparison'
+            }
+            className="border border-[var(--border)] px-2 py-1 font-mono text-[10px] uppercase text-[var(--text-muted)] hover:text-[var(--color-green)] disabled:opacity-40"
+          >
+            Save for comparison
+          </button>
+        )}
       </PanelHeader>
       <PanelContent className="flex flex-col gap-6">
         {!result ? (

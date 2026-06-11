@@ -5,6 +5,7 @@ import { AttackerPanel } from '@/components/AttackerPanel.tsx'
 import { DefenderPanel } from '@/components/DefenderPanel.tsx'
 import { ModifiersPanel } from '@/components/ModifiersPanel.tsx'
 import { ResultsPanel } from '@/components/ResultsPanel.tsx'
+import { ComparisonPanel } from '@/components/ComparisonPanel.tsx'
 import { useEditions, useFaction } from '@/data/hooks.ts'
 import type { Unit } from '@/data/types.ts'
 import {
@@ -84,6 +85,8 @@ function App() {
     initial.groupOrder,
   )
 
+  // saved comparison scenarios (serialized states, carried in the URL)
+  const [saved, setSaved] = useState<string[]>(initial.saved ?? [])
   const [context, setContext] = useState<AttackContext>(initial.context ?? {})
   const [overrides, setOverrides] = useState<DefenderOverrides>(
     initial.overrides ?? {},
@@ -315,12 +318,28 @@ function App() {
     overrides,
   ])
   useEffect(() => {
+    const params = new URLSearchParams(hash)
+    if (saved.length > 0) params.set('cmp', saved.join('|'))
+    const full = params.toString()
     history.replaceState(
       null,
       '',
-      hash ? `#${hash}` : window.location.pathname + window.location.search,
+      full ? `#${full}` : window.location.pathname + window.location.search,
     )
-  }, [hash])
+  }, [hash, saved])
+
+  const MAX_SAVED = 8
+  const saveComparison = () => {
+    setSaved((list) =>
+      list.includes(hash) || list.length >= MAX_SAVED ? list : [...list, hash],
+    )
+  }
+  const loadComparison = (entry: string) => {
+    const params = new URLSearchParams(entry)
+    if (saved.length > 0) params.set('cmp', saved.join('|'))
+    window.location.hash = `#${params.toString()}`
+    window.location.reload()
+  }
 
   const [copied, setCopied] = useState(false)
   const copyLink = () => {
@@ -524,6 +543,8 @@ function App() {
         result={result}
         defenderName={defender?.name}
         attachedNames={defenderChars.map((u) => u.name)}
+        onSave={saveComparison}
+        saveDisabled={saved.length >= MAX_SAVED || saved.includes(hash)}
         modelLayout={
           defender
             ? defenderModelLayout({
@@ -538,6 +559,13 @@ function App() {
               })
             : []
         }
+      />
+
+      <ComparisonPanel
+        entries={saved}
+        editions={editions.data ?? []}
+        onLoad={loadComparison}
+        onRemove={(i) => setSaved((list) => list.filter((_, j) => j !== i))}
       />
 
       <footer className="mt-auto pt-4 text-xs text-[var(--text-muted)]">

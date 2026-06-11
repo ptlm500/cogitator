@@ -38,6 +38,8 @@ export interface SharedState {
   legacyModels?: number
   context?: AttackContext
   overrides?: DefenderOverrides
+  /** Saved comparison scenarios: serialized SharedStates (no nesting) */
+  saved?: string[]
 }
 
 const SITUATION_FLAGS: [keyof AttackContext, string][] = [
@@ -203,6 +205,12 @@ export function parseState(hash: string): SharedState {
   if (rw && REROLLS.includes(rw)) context.rerollWounds = rw
   if (p.get('ch') === '5') context.critHitOn = 5
   if (Object.keys(context).length > 0) state.context = context
+
+  const cmp = p.get('cmp')
+  if (cmp) {
+    const entries = cmp.split('|').filter(Boolean)
+    if (entries.length > 0) state.saved = entries
+  }
 
   const overrides: DefenderOverrides = {}
   const iv = parseSave(p.get('iv'))

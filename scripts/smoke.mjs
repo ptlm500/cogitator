@@ -188,6 +188,17 @@ console.log(
 await page.getByLabel('Modify Bolt Rifle', { exact: true }).click()
 const buffedFinal = hitsAfterSkill
 
+// save the current result for comparison (carried in the URL)
+await page.getByRole('button', { name: 'Save for comparison' }).click()
+await page.getByText('Saved Comparisons').waitFor()
+await page
+  .locator('li')
+  .filter({ hasText: 'Apothecary' })
+  .filter({ hasText: 'vs' })
+  .first()
+  .waitFor()
+console.log('comparison saved')
+
 // the URL must restore the whole state in a fresh page
 const shareUrl = page.url()
 if (!shareUrl.includes('#')) throw new Error('URL has no state hash')
@@ -196,6 +207,8 @@ await fresh.goto(shareUrl, { waitUntil: 'domcontentloaded' })
 await fresh.getByText('Intercessor Squad').first().waitFor({ timeout: 5000 })
 await fresh.getByText('Plague Marines').first().waitFor()
 await fresh.getByText('Probability', { exact: false }).waitFor()
+// the saved comparison travels with the URL
+await fresh.getByText('Saved Comparisons').waitFor()
 const restoredHits = await stat(fresh, 'Hits')
 if (restoredHits !== buffedFinal) {
   throw new Error(
