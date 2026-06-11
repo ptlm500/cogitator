@@ -834,12 +834,32 @@ function extractSizes(
           }
         : { min: m.min, max: m.max, default: m.default }
     }
+    clampPools(pools, models)
     acc.sizes.push({
       id: str(opt.link?.id) || str(opt.node.id),
       label: str(opt.node.name),
       models,
       ...(pools.length > 0 ? { pools } : {}),
     })
+  }
+}
+
+/**
+ * A pool's budget can't exceed what the size's standard composition puts in
+ * it: BSData group caps span all sizes (the Voidscarred body group allows
+ * 9 at either size), but at "5 models" only 4 body slots exist. Optional
+ * pools whose composition take is zero keep their explicit cap.
+ */
+function clampPools(
+  pools: SizePool[],
+  models: Record<string, SizeCount>,
+): void {
+  for (const pool of pools) {
+    const total = pool.modelIds.reduce(
+      (sum, id) => sum + (models[id]?.default ?? 0),
+      0,
+    )
+    if (total > 0) pool.max = Math.min(pool.max, total)
   }
 }
 
@@ -1005,6 +1025,7 @@ function synthesizeSizes(
           }
         : { min: m.min, max: m.max, default: m.default }
     }
+    clampPools(pools, models)
     sizes.push({
       id: `models-${total}`,
       label: `${total} models`,

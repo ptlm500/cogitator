@@ -187,13 +187,21 @@ export function rowPools(
           max: pool.max,
           keys: inPool.map((r) => r.key),
           capacity: inPool.reduce((sum, r) => sum + r.maxCount, 0),
+          defaultUse: inPool.reduce((sum, r) => sum + r.defaultCount, 0),
         }
       })
       // a pool only matters when its rows could exceed the budget; weapons
       // also carried by models outside the pool (the Long-quill's Kroot
       // rifle) fall out of the mapping, which can leave a budget that
-      // nothing meaningful spends — showing it would just confuse
-      .filter((p) => p.keys.length > 0 && p.capacity > p.max)
+      // nothing meaningful spends — showing it would just confuse.
+      // And budgets count weapons while pools count models: when pool
+      // models carry several mapped weapons each (Voidscarred specialists
+      // carry pistol + signature weapon), even the standard composition
+      // overruns the budget — that accounting can only mislead, so the
+      // pool is dropped rather than wrongly enforced
+      .filter(
+        (p) => p.keys.length > 0 && p.capacity > p.max && p.defaultUse <= p.max,
+      )
       .map((p) => ({ label: p.label, max: p.max, keys: p.keys }))
   )
 }

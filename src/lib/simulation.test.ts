@@ -236,6 +236,69 @@ describe('unit sizes', () => {
     expect(rowPools(phantom, 'shooting', 'size10')).toEqual([])
   })
 
+  it('drops pools whose standard composition overruns the budget', () => {
+    // the special model carries TWO pool-mapped weapons (pistol + plasma):
+    // with a default plasma+pistol loadout the 1-model budget reads 2/1,
+    // so the accounting is wrong and the pool must not surface
+    const doubled: Unit = {
+      ...sizedUnit,
+      models: sizedUnit.models.map((m) =>
+        m.id === 'special'
+          ? {
+              ...m,
+              weapons: [
+                ...m.weapons,
+                { weaponId: 'pistol2', defaultCount: 1, max: 1 },
+              ],
+            }
+          : m,
+      ),
+      weapons: {
+        ...sizedUnit.weapons,
+        pistol2: {
+          id: 'pistol2',
+          name: 'Holdout Pistol',
+          profiles: [
+            {
+              name: 'Holdout Pistol',
+              type: 'ranged',
+              range: 12,
+              attacks: '1',
+              skill: 3,
+              strength: 3,
+              ap: 0,
+              damage: '1',
+              keywords: [],
+            },
+          ],
+        },
+      },
+      sizes: [
+        {
+          id: 'size6',
+          label: '6 models',
+          models: {
+            sgt: { min: 1, max: 1, default: 1 },
+            trooper: { min: 2, max: 4, default: 4 },
+            special: { min: 0, max: 1, default: 1 },
+          },
+          pools: [{ label: 'Specials', max: 1, modelIds: ['special'] }],
+        },
+        {
+          id: 'size11',
+          label: '11 models',
+          models: {
+            sgt: { min: 1, max: 1, default: 1 },
+            trooper: { min: 4, max: 9, default: 9 },
+            special: { min: 0, max: 2, default: 1 },
+          },
+          pools: [{ label: 'Specials', max: 2, modelIds: ['special'] }],
+        },
+      ],
+    }
+    expect(rowPools(doubled, 'shooting', 'size6')).toEqual([])
+  })
+
   it('translates model pools into weapon-row caps', () => {
     const pools = rowPools(sizedUnit, 'shooting', 'size10')
     expect(pools).toHaveLength(1)
