@@ -51,7 +51,9 @@
   /* Text */
   --text-primary:   #00ed3f;
   --text-secondary: #E0D5BE;
-  --text-muted:     #4A4A40;
+  /* local change from upstream scificn (#4A4A40): lifted for legibility,
+     ~5.6:1 contrast on the dark surfaces while staying clearly muted */
+  --text-muted:     #8C8C80;
   --text-warning:   #ff8800;
   --text-danger:    #cc2200;
 
