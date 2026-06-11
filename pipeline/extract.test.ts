@@ -126,6 +126,18 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
         </entryLink>
         <entryLink id="link-pods-hero" name="Pods" type="selectionEntryGroup" targetId="grp-pods"/>
       </entryLinks>
+      <selectionEntryGroups>
+        <selectionEntryGroup id="grp-hardpoints" name="Hardpoints" defaultSelectionEntryId="hp-rifle" hidden="false">
+          <constraints>
+            <constraint type="min" value="3" field="selections" scope="parent" id="cn-hp1"/>
+            <constraint type="max" value="3" field="selections" scope="parent" id="cn-hp2"/>
+          </constraints>
+          <entryLinks>
+            <entryLink id="hp-rifle" name="Test Rifle" type="selectionEntry" targetId="wpn-rifle"/>
+            <entryLink id="hp-chainsword" name="Chainsword" type="selectionEntry" targetId="wpn-chainsword"/>
+          </entryLinks>
+        </selectionEntryGroup>
+      </selectionEntryGroups>
     </selectionEntry>
     <selectionEntry id="wpn-rifle" name="Test Rifle" type="upgrade" hidden="false">
       <profiles>
@@ -388,6 +400,18 @@ describe('extractUnit', () => {
     expect(unit.models).toHaveLength(1)
     expect(unit.models[0]).toMatchObject({ name: 'Test Hero', min: 1, max: 1 })
     expect(unit.models[0].weapons).toEqual([
+      {
+        weaponId: 'wpn-rifle',
+        defaultCount: 3,
+        max: 3,
+        choiceGroup: 'Hardpoints',
+      },
+      {
+        weaponId: 'wpn-chainsword',
+        defaultCount: 0,
+        max: 3,
+        choiceGroup: 'Hardpoints',
+      },
       { weaponId: 'wpn-fist', defaultCount: 1, max: 1 },
       { weaponId: 'wpn-heropod', defaultCount: 0, max: 1, choiceGroup: 'Pods' },
       {
@@ -416,6 +440,29 @@ describe('extractUnit', () => {
   it('returns null for entries without a unit statline', () => {
     const { index } = setup()
     expect(extractUnit(index.resolve('wpn-rifle')!, index)).toBeNull()
+  })
+})
+
+describe('group selection ranges', () => {
+  it('options inherit a pick-N group range and its default fills the minimum', () => {
+    const { index } = setup()
+    const unit = extractUnit(index.resolve('unit-hero')!, index)!
+    const hero = unit.models[0]
+    const inGroup = hero.weapons.filter((w) => w.choiceGroup === 'Hardpoints')
+    expect(inGroup).toEqual([
+      {
+        weaponId: 'wpn-rifle',
+        defaultCount: 3,
+        max: 3,
+        choiceGroup: 'Hardpoints',
+      },
+      {
+        weaponId: 'wpn-chainsword',
+        defaultCount: 0,
+        max: 3,
+        choiceGroup: 'Hardpoints',
+      },
+    ])
   })
 })
 

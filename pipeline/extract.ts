@@ -331,10 +331,21 @@ function collectUnitProfiles(
   }
 }
 
+/** A selection entry group's own min/max selection constraints */
+interface GroupRange {
+  min: number
+  max?: number
+}
+
 /**
  * Collect weapon options under a model (or unit) entry. Descends through
  * selection entry groups; a group of more than one weapon option becomes a
  * named choice group so the UI can treat its options as alternatives.
+ *
+ * Options without their own constraints inherit the enclosing group's
+ * range: a "pick 3 from" group (e.g. the Ravager's Weapon Option group)
+ * caps each option at 3, and its default option defaults to the group
+ * minimum.
  */
 function collectWeapons(
   node: BSNode,
@@ -344,6 +355,7 @@ function collectWeapons(
   ctx: AncestorContext,
   choiceGroup?: string,
   groupDefaultId?: string,
+  groupRange?: GroupRange,
   depth = 0,
 ): void {
   if (depth > 6) return
@@ -353,12 +365,21 @@ function collectWeapons(
     const weapon = weaponFromEntry(n, index)
     if (weapon) {
       acc.weapons.set(weapon.id, weapon)
-      const { min, max } = childRange(child)
+      const ownMin = constraintValue(link, 'min') ?? constraintValue(n, 'min')
+      const ownMax = constraintValue(link, 'max') ?? constraintValue(n, 'max')
+      const min = ownMin ?? 0
+      const max = ownMax ?? groupRange?.max ?? Math.max(min, 1)
       const isGroupDefault =
         groupDefaultId !== undefined &&
         (n.id === groupDefaultId || link?.id === groupDefaultId)
       const defaultCount =
-        min > 0 ? min : isGroupDefault || link?.defaultAmount ? 1 : 0
+        min > 0
+          ? min
+          : isGroupDefault
+            ? Math.max(groupRange?.min ?? 1, 1)
+            : link?.defaultAmount
+              ? 1
+              : 0
       out.push({
         weaponId: weapon.id,
         defaultCount,
@@ -368,12 +389,20 @@ function collectWeapons(
       continue
     }
     // non-weapon upgrade or group: descend
-    const nextGroup =
-      n.type === undefined ? str(n.name) || choiceGroup : choiceGroup
-    const nextDefault =
-      n.type === undefined
-        ? str(n.defaultSelectionEntryId) || undefined
-        : groupDefaultId
+    const isGroup = n.type === undefined
+    const nextGroup = isGroup ? str(n.name) || choiceGroup : choiceGroup
+    const nextDefault = isGroup
+      ? str(n.defaultSelectionEntryId) || undefined
+      : groupDefaultId
+    const nextRange: GroupRange | undefined = isGroup
+      ? {
+          min:
+            constraintValue(child.link, 'min') ??
+            constraintValue(n, 'min') ??
+            0,
+          max: constraintValue(child.link, 'max') ?? constraintValue(n, 'max'),
+        }
+      : groupRange
     collectWeapons(
       n,
       index,
@@ -382,6 +411,7 @@ function collectWeapons(
       extendContext(ctx, child),
       nextGroup,
       nextDefault,
+      nextRange,
       depth + 1,
     )
   }
@@ -462,6 +492,7 @@ function walkUnitChildren(
           acc,
           acc.looseWeapons,
           childCtx,
+          undefined,
           undefined,
           undefined,
           depth + 1,
