@@ -28,6 +28,7 @@ export const EXTRA_ABILITIES: ExtraAbility[] = [
   },
   { code: 'DW', keyword: 'Devastating Wounds', label: 'Dev Wounds' },
   { code: 'TL', keyword: 'Twin-linked', label: 'Twin-linked' },
+  { code: 'HV', keyword: 'Heavy', label: 'Heavy' },
   { code: 'IC', keyword: 'Ignores Cover', label: 'Ignores Cover' },
   { code: 'A4', keyword: 'Anti-* 4+', label: 'Anti 4+', group: 'anti' },
   { code: 'A3', keyword: 'Anti-* 3+', label: 'Anti 3+', group: 'anti' },

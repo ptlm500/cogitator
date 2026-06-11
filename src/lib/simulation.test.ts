@@ -426,6 +426,15 @@ describe('runSimulation', () => {
       {},
     )!
     expect(lethal.expected.wounds).toBeGreaterThan(base.expected.wounds)
+    // Heavy grants +1 to hit while stationary
+    const heavyGrant = runSimulation(
+      '10e',
+      rows,
+      { counts, extras: { [rifleKey]: ['HV'] } },
+      defender,
+      { stationary: true },
+    )!
+    expect(heavyGrant.expected.hits).toBeGreaterThan(base.expected.hits)
     // Anti 3+ crits wounds on 3+ against any target (base needs 4s)
     const anti = runSimulation(
       '10e',
