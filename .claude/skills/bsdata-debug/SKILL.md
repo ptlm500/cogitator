@@ -94,6 +94,13 @@ These are the recurring XML patterns; check each against the symptom:
   special weapons"). Extracted as `unit.sizes[]` with per-model counts and
   pools (`extractSizes`, `modifiedConstraintValue`); the UI exposes a size
   selector and enforces pool budgets on the weapon steppers.
+- **Model-count threshold caps** — the other size encoding (Kroot
+  Carnivores, Kabalite-style squads): no composition group, just constraint
+  value modifiers conditioned on `selections unit (childId=model)`
+  thresholds, often on unit-scope weapon-link maxima. `synthesizeSizes`
+  collects the thresholds and re-evaluates the unit per branch under an
+  assumed model-count range (`assumedModels`), emitting sizes labelled
+  "N models" with per-size `weapons` caps.
 - **Skipped subtrees** — `Crusade` and `Enhancements` children are excluded
   (`SKIPPED_CHILDREN`); they once leaked hundreds of abilities.
 - **Abilities with bare values** — "Invulnerable Save" profiles may contain
