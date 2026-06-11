@@ -7,7 +7,13 @@ import { ModifiersPanel } from '@/components/ModifiersPanel.tsx'
 import { ResultsPanel } from '@/components/ResultsPanel.tsx'
 import { useEditions, useFaction } from '@/data/hooks.ts'
 import type { Unit } from '@/data/types.ts'
-import { SegmentedControl } from '@/components/SegmentedControl.tsx'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select/select'
 import {
   defenseGroups,
   profileRows,
@@ -265,7 +271,7 @@ function App() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <header className="flex items-center justify-between gap-2">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-mono text-2xl uppercase tracking-widest text-[var(--color-green)]">
           Cogitator
         </h1>
@@ -274,18 +280,21 @@ function App() {
             {copied ? 'Copied' : 'Copy link'}
           </Button>
           {(editions.data?.length ?? 0) > 1 ? (
-            <SegmentedControl
-              label="Edition"
-              options={editions.data!.map((e) => ({
-                value: e.edition,
-                label: e.label,
-              }))}
-              value={edition}
-              // selections survive the switch: while 11e aliases the 10e
-              // dataset the same units resolve, and with real 11e data a
-              // stale id simply leaves the unit unselected
-              onChange={setEdition}
-            />
+            // selections survive the switch: while 11e aliases the 10e
+            // dataset the same units resolve, and with real 11e data a
+            // stale id simply leaves the unit unselected
+            <Select value={edition} onValueChange={setEdition}>
+              <SelectTrigger aria-label="Edition" className="w-auto shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {editions.data!.map((e) => (
+                  <SelectItem key={e.edition} value={e.edition}>
+                    {e.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             <Badge>
               {editions.data?.find((e) => e.edition === edition)?.label ??

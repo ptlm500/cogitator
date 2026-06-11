@@ -178,10 +178,8 @@ console.log(`mixed statlines work: slain ${mixedSlain} -> ${mixedSlain2}`)
 
 // --- 11th edition (preview on 10e data) ---
 const hits10e = await stat(fresh, 'Hits')
-await fresh
-  .getByRole('group', { name: 'Edition' })
-  .getByRole('button', { name: '11th Ed (Preview)' })
-  .click()
+await fresh.getByLabel('Edition').click()
+await fresh.getByRole('option', { name: '11th Ed (Preview)' }).click()
 await fresh
   .getByText('Probability', { exact: false })
   .waitFor({ timeout: 5000 })
@@ -224,7 +222,14 @@ await mobile
   .getByText('Probability', { exact: false })
   .waitFor({ timeout: 5000 })
 await mobile.screenshot({ path: '/tmp/cogitator-mobile.png', fullPage: true })
-console.log('mobile rendered')
+const overflow = await mobile.evaluate(
+  () =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth,
+)
+if (overflow > 0) {
+  throw new Error(`mobile horizontal overflow: ${overflow}px`)
+}
+console.log('mobile rendered without horizontal scroll')
 
 console.log('console errors:', errors.length ? errors : 'none')
 await browser.close()
