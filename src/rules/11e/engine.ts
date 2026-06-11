@@ -25,6 +25,7 @@ import {
   convolve,
   convolvePower,
   expectation,
+  mapValues,
   type Dist,
 } from '../lib/dist.ts'
 import { parseKeywords, type ParsedKeywords } from '../lib/keywords.ts'
@@ -81,6 +82,12 @@ function resolveWeapon(
 
   // attacks per weapon
   let attacksPerWeapon = parseDice(profile.attacks)
+  if (profile.attacksBonus) {
+    const bonus = profile.attacksBonus
+    attacksPerWeapon = mapValues(attacksPerWeapon, (a) =>
+      Math.max(1, a + bonus),
+    )
+  }
   if (kw.blast) {
     const models = defender.segments.reduce((sum, s) => sum + s.models, 0)
     const bonus = Math.floor(models / 5)
@@ -120,7 +127,8 @@ function resolveWeapon(
     (defender.keywords ?? []).map((k) => k.toLowerCase()),
   )
   const antiThresholds = kw.anti
-    .filter((a) => defenderKeywords.has(a.keyword))
+    // "Anti-* N+" (manual grants) applies against any target
+    .filter((a) => a.keyword === '*' || defenderKeywords.has(a.keyword))
     .map((a) => a.threshold)
   const critWoundOn = Math.max(2, Math.min(6, ...antiThresholds, 6))
   const lanceBonus = kw.lance && context.charged && !ranged ? 1 : 0

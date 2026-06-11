@@ -5,8 +5,10 @@ import type {
   DefenderInput,
   DefenderSegment,
   WeaponInput,
+  WeaponProfileInput,
 } from '@/rules/types.ts'
 import { engines } from '@/rules/index.ts'
+import { extraKeywords } from './weaponExtras.ts'
 
 export type AttackMode = 'shooting' | 'melee'
 
@@ -262,12 +264,21 @@ export function characterUnits(units: Unit[]): Unit[] {
   return units.filter((u) => u.keywords.includes('Character'))
 }
 
+/** Per-weapon-row manual overrides (deltas from the datasheet) */
+export interface RowOverrides {
+  counts: Record<string, number>
+  /** BS/WS characteristic overrides (stack with roll modifiers) */
+  skills?: Record<string, number>
+  /** Attacks characteristic modifier (min 1 after applying) */
+  attackBonus?: Record<string, number>
+  /** Granted ability codes (see weaponExtras.ts) */
+  extras?: Record<string, string[]>
+}
+
 export function runSimulation(
   edition: string,
   rows: ProfileRow[],
-  counts: Record<string, number>,
-  /** Per-row BS/WS characteristic overrides (stack with roll modifiers) */
-  skills: Record<string, number>,
+  overrides: RowOverrides,
   defender: DefenderConfig,
   context: AttackContext,
 ): AttackResult | undefined {
@@ -275,12 +286,26 @@ export function runSimulation(
   if (!engine) return undefined
   const weapons: WeaponInput[] = rows
     .map((row) => {
-      const skill = skills[row.key]
-      const profile =
-        skill !== undefined && row.profile.skill > 0
-          ? { ...row.profile, skill }
-          : row.profile
-      return { profile, count: counts[row.key] ?? 0 }
+      let profile: WeaponProfileInput = row.profile
+      const skill = overrides.skills?.[row.key]
+      const bonus = overrides.attackBonus?.[row.key]
+      const codes = overrides.extras?.[row.key]
+      if (
+        (skill !== undefined && profile.skill > 0) ||
+        bonus ||
+        (codes && codes.length > 0)
+      ) {
+        profile = {
+          ...profile,
+          skill:
+            skill !== undefined && profile.skill > 0 ? skill : profile.skill,
+          attacksBonus: bonus,
+          keywords: codes?.length
+            ? [...profile.keywords, ...extraKeywords(codes)]
+            : profile.keywords,
+        }
+      }
+      return { profile, count: overrides.counts[row.key] ?? 0 }
     })
     .filter((w) => w.count > 0)
   return engine.resolveAttacks(weapons, toDefenderInput(defender), context)

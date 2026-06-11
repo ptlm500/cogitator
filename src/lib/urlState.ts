@@ -13,6 +13,10 @@ export interface SharedState {
   counts?: Record<string, number>
   /** Per-row BS/WS characteristic overrides */
   skills?: Record<string, number>
+  /** Per-row Attacks characteristic modifiers */
+  attackBonus?: Record<string, number>
+  /** Per-row granted ability codes */
+  extras?: Record<string, string[]>
   defenderFaction?: string
   defenderUnitId?: string
   defenderCharIds?: string[]
@@ -62,6 +66,16 @@ export function serializeState(state: SharedState): string {
   const skills = Object.entries(state.skills ?? {})
   if (skills.length > 0) {
     set('sk', skills.map(([k, v]) => `${k}:${v}`).join(','))
+  }
+  const attackBonus = Object.entries(state.attackBonus ?? {})
+  if (attackBonus.length > 0) {
+    set('ab', attackBonus.map(([k, v]) => `${k}:${v}`).join(','))
+  }
+  const extras = Object.entries(state.extras ?? {}).filter(
+    ([, codes]) => codes.length > 0,
+  )
+  if (extras.length > 0) {
+    set('xk', extras.map(([k, codes]) => `${k}:${codes.join('.')}`).join(','))
   }
   set('df', state.defenderFaction)
   set('du', state.defenderUnitId)
@@ -119,6 +133,21 @@ export function parseState(hash: string): SharedState {
   }
   state.counts = parseKeyedNumbers(p.get('wc'))
   state.skills = parseKeyedNumbers(p.get('sk'))
+  state.attackBonus = parseKeyedNumbers(p.get('ab'))
+  const xk = p.get('xk')
+  if (xk) {
+    const extras: Record<string, string[]> = {}
+    for (const entry of xk.split(',')) {
+      const i = entry.lastIndexOf(':')
+      if (i <= 0) continue
+      const codes = entry
+        .slice(i + 1)
+        .split('.')
+        .filter(Boolean)
+      if (codes.length > 0) extras[entry.slice(0, i)] = codes
+    }
+    if (Object.keys(extras).length > 0) state.extras = extras
+  }
   state.defenderFaction = get('df')
   state.defenderUnitId = get('du')
   const dc = p.get('dc')

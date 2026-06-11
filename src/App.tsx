@@ -16,6 +16,7 @@ import {
   type DefenderOverrides,
 } from '@/lib/simulation.ts'
 import { editionUiFor } from '@/lib/editions.ts'
+import { toggleExtra } from '@/lib/weaponExtras.ts'
 import { parseState, serializeState } from '@/lib/urlState.ts'
 import type { AttackContext } from '@/rules/types.ts'
 
@@ -29,6 +30,8 @@ function App() {
   const [pending, setPending] = useState({
     counts: initial.counts,
     skills: initial.skills,
+    attackBonus: initial.attackBonus,
+    extras: initial.extras,
     modelCounts: initial.modelCounts,
     legacyModels: initial.legacyModels,
   })
@@ -42,8 +45,10 @@ function App() {
   )
   const [mode, setMode] = useState<AttackMode>(initial.mode ?? 'shooting')
   const [counts, setCounts] = useState<Record<string, number>>({})
-  // BS/WS characteristic overrides by row key (only deltas are stored)
+  // per-row manual overrides (only deltas are stored)
   const [skills, setSkills] = useState<Record<string, number>>({})
+  const [attackBonus, setAttackBonus] = useState<Record<string, number>>({})
+  const [extras, setExtras] = useState<Record<string, string[]>>({})
 
   const [defenderFaction, setDefenderFaction] = useState(
     initial.defenderFaction,
@@ -107,13 +112,28 @@ function App() {
       )
       setCounts({ ...defaults, ...pending.counts })
       setSkills(pending.skills ?? {})
+      setAttackBonus(pending.attackBonus ?? {})
+      setExtras(pending.extras ?? {})
       // URL-provided values are for the first real loadout only
-      if (pending.counts || pending.skills) {
-        setPending((p) => ({ ...p, counts: undefined, skills: undefined }))
+      if (
+        pending.counts ||
+        pending.skills ||
+        pending.attackBonus ||
+        pending.extras
+      ) {
+        setPending((p) => ({
+          ...p,
+          counts: undefined,
+          skills: undefined,
+          attackBonus: undefined,
+          extras: undefined,
+        }))
       }
     } else {
       setCounts({})
       setSkills({})
+      setAttackBonus({})
+      setExtras({})
     }
   }
 
@@ -151,8 +171,7 @@ function App() {
     return runSimulation(
       edition,
       rows,
-      counts,
-      skills,
+      { counts, skills, attackBonus, extras },
       {
         unit: defender,
         modelCounts,
@@ -172,6 +191,8 @@ function App() {
     rows,
     counts,
     skills,
+    attackBonus,
+    extras,
     modelCounts,
     overrides,
     context,
@@ -193,6 +214,8 @@ function App() {
       mode,
       counts: changed,
       skills,
+      attackBonus,
+      extras,
       defenderFaction,
       defenderUnitId,
       defenderCharIds,
@@ -210,6 +233,8 @@ function App() {
     rows,
     counts,
     skills,
+    attackBonus,
+    extras,
     defenderFaction,
     defenderUnitId,
     defenderCharIds,
@@ -282,6 +307,8 @@ function App() {
           rows={rows}
           counts={counts}
           skills={skills}
+          attackBonus={attackBonus}
+          extras={extras}
           onFactionChange={(f) => {
             setAttackerFaction(f)
             setAttackerUnitId(undefined)
@@ -305,6 +332,21 @@ function App() {
               const next = { ...s }
               if (skill === undefined) delete next[key]
               else next[key] = skill
+              return next
+            })
+          }
+          onAttackBonusChange={(key, bonus) =>
+            setAttackBonus((s) => {
+              const next = { ...s }
+              if (bonus === undefined) delete next[key]
+              else next[key] = bonus
+              return next
+            })
+          }
+          onExtraToggle={(key, code) =>
+            setExtras((s) => {
+              const next = { ...s, [key]: toggleExtra(s[key] ?? [], code) }
+              if (next[key].length === 0) delete next[key]
               return next
             })
           }

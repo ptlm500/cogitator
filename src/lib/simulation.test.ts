@@ -287,8 +287,7 @@ describe('runSimulation', () => {
     const result = runSimulation(
       '10e',
       rows,
-      counts,
-      {},
+      { counts },
       { unit, modelCounts: { s1: 5 } },
       {},
     )
@@ -302,13 +301,12 @@ describe('runSimulation', () => {
     const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
     const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
     const defender = { unit, modelCounts: { s1: 5 } }
-    const base = runSimulation('10e', rows, counts, {}, defender, {})!
+    const base = runSimulation('10e', rows, { counts }, defender, {})!
     // 3+ -> 2+ improves hits on the 18 rifle shots but not the pistol
     const buffed = runSimulation(
       '10e',
       rows,
-      counts,
-      { [rifleKey]: 2 },
+      { counts, skills: { [rifleKey]: 2 } },
       defender,
       {},
     )!
@@ -324,8 +322,7 @@ describe('runSimulation', () => {
     const result = runSimulation(
       '10e',
       rows,
-      counts,
-      { [rifleKey]: 4 },
+      { counts, skills: { [rifleKey]: 4 } },
       defender,
       { hitMod: 1 },
     )!
@@ -340,11 +337,53 @@ describe('runSimulation', () => {
       runSimulation(
         '99e',
         rows,
-        counts,
-        {},
+        { counts },
         { unit, modelCounts: { s1: 5 } },
         {},
       ),
     ).toBeUndefined()
+  })
+
+  it('applies attack bonuses per profile', () => {
+    const rows = profileRows(unit, 'shooting')
+    const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
+    const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
+    const defender = { unit, modelCounts: { s1: 5 } }
+    const base = runSimulation('10e', rows, { counts }, defender, {})!
+    const boosted = runSimulation(
+      '10e',
+      rows,
+      { counts, attackBonus: { [rifleKey]: 1 } },
+      defender,
+      {},
+    )!
+    // 9 rifles gain +1 attack each
+    expect(boosted.expected.attacks).toBeCloseTo(base.expected.attacks + 9, 12)
+  })
+
+  it('applies granted abilities per profile', () => {
+    const rows = profileRows(unit, 'shooting')
+    const counts = Object.fromEntries(rows.map((r) => [r.key, r.defaultCount]))
+    const rifleKey = rows.find((r) => r.profile.name === 'Rifle')!.key
+    const defender = { unit, modelCounts: { s1: 5 } }
+    const base = runSimulation('10e', rows, { counts }, defender, {})!
+    // Lethal Hits: crits auto-wound, so expected wounds rise
+    const lethal = runSimulation(
+      '10e',
+      rows,
+      { counts, extras: { [rifleKey]: ['LH'] } },
+      defender,
+      {},
+    )!
+    expect(lethal.expected.wounds).toBeGreaterThan(base.expected.wounds)
+    // Anti 3+ crits wounds on 3+ against any target (base needs 4s)
+    const anti = runSimulation(
+      '10e',
+      rows,
+      { counts, extras: { [rifleKey]: ['A3'] } },
+      defender,
+      {},
+    )!
+    expect(anti.expected.wounds).toBeGreaterThan(base.expected.wounds)
   })
 })

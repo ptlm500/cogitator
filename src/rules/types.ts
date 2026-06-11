@@ -7,6 +7,8 @@ export interface WeaponProfileInput {
   type: 'ranged' | 'melee'
   /** Attacks characteristic, dice notation allowed ("2", "D6", "D6+1") */
   attacks: string
+  /** Modifier to the Attacks characteristic (applied per roll, min 1) */
+  attacksBonus?: number
   /** BS/WS (2-6); 0 means no hit roll (torrent) */
   skill: number
   strength: number

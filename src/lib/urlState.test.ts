@@ -10,6 +10,8 @@ describe('urlState', () => {
       mode: 'melee',
       counts: { 'w1:0': 5, 'w2:1': 0 },
       skills: { 'w1:0': 2 },
+      attackBonus: { 'w1:0': 1, 'w2:1': -1 },
+      extras: { 'w1:0': ['LH', 'A4'], 'w2:1': ['DW'] },
       defenderFaction: 'chaos-death-guard.json',
       defenderUnitId: 'def-456',
       defenderCharIds: ['char-2'],

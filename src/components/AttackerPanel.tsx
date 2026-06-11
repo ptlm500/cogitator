@@ -6,8 +6,10 @@ import {
   PanelTitle,
 } from '@/components/ui/panel/panel'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs/tabs'
+import { useState } from 'react'
 import type { Unit } from '@/data/types.ts'
 import type { AttackMode, ProfileRow } from '@/lib/simulation.ts'
+import { EXTRA_ABILITIES, extraLabels } from '@/lib/weaponExtras.ts'
 import { NumberStepper } from './NumberStepper.tsx'
 import { CharacterSelect } from './CharacterSelect.tsx'
 import { UnitSelect } from './UnitSelect.tsx'
@@ -25,12 +27,18 @@ interface AttackerPanelProps {
   counts: Record<string, number>
   /** BS/WS characteristic overrides by row key */
   skills: Record<string, number>
+  /** Attacks characteristic modifiers by row key */
+  attackBonus: Record<string, number>
+  /** Granted ability codes by row key (see weaponExtras.ts) */
+  extras: Record<string, string[]>
   onFactionChange: (file: string) => void
   onUnitChange: (unitId: string) => void
   onAttachedChange: (index: number, unitId: string | undefined) => void
   onModeChange: (mode: AttackMode) => void
   onCountChange: (key: string, count: number) => void
   onSkillChange: (key: string, skill: number | undefined) => void
+  onAttackBonusChange: (key: string, bonus: number | undefined) => void
+  onExtraToggle: (key: string, code: string) => void
 }
 
 const statText = (p: ProfileRow['profile']) =>
@@ -54,13 +62,18 @@ export function AttackerPanel({
   rows,
   counts,
   skills,
+  attackBonus,
+  extras,
   onFactionChange,
   onUnitChange,
   onAttachedChange,
   onModeChange,
   onCountChange,
   onSkillChange,
+  onAttackBonusChange,
+  onExtraToggle,
 }: AttackerPanelProps) {
+  const [abilityEditor, setAbilityEditor] = useState<string | null>(null)
   return (
     <Panel>
       <PanelHeader>
@@ -118,13 +131,64 @@ export function AttackerPanel({
                       <p className="text-xs text-[var(--text-muted)]">
                         {statText(row.profile)}
                       </p>
-                      {row.profile.keywords.length > 0 && (
+                      {(row.profile.keywords.length > 0 ||
+                        (extras[row.key]?.length ?? 0) > 0) && (
                         <p className="mt-1 flex flex-wrap gap-1">
                           {row.profile.keywords.map((kw) => (
                             <Badge key={kw} variant="OFFLINE">
                               {kw}
                             </Badge>
                           ))}
+                          {extraLabels(extras[row.key] ?? []).map((label) => (
+                            <span
+                              key={label}
+                              className="border border-[var(--color-amber)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--color-amber)]"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAbilityEditor(
+                            abilityEditor === row.key ? null : row.key,
+                          )
+                        }
+                        aria-label={`Edit ${row.profile.name} abilities`}
+                        aria-expanded={abilityEditor === row.key}
+                        className="mt-1 border border-[var(--border)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--text-muted)] hover:text-[var(--color-green)]"
+                      >
+                        {abilityEditor === row.key
+                          ? '− abilities'
+                          : '+ abilities'}
+                      </button>
+                      {abilityEditor === row.key && (
+                        <p className="mt-1 flex flex-wrap gap-1">
+                          {EXTRA_ABILITIES.map((ability) => {
+                            const active = (extras[row.key] ?? []).includes(
+                              ability.code,
+                            )
+                            return (
+                              <button
+                                key={ability.code}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() =>
+                                  onExtraToggle(row.key, ability.code)
+                                }
+                                className={
+                                  'border px-1.5 py-0.5 font-mono text-[10px] uppercase ' +
+                                  (active
+                                    ? 'border-[var(--color-amber)] text-[var(--color-amber)]'
+                                    : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]')
+                                }
+                              >
+                                {ability.label}
+                              </button>
+                            )
+                          })}
                         </p>
                       )}
                     </div>
@@ -136,6 +200,25 @@ export function AttackerPanel({
                         onChange={(v) => onCountChange(row.key, v)}
                         label={row.profile.name}
                       />
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase text-[var(--text-muted)]">
+                          A±
+                        </span>
+                        <NumberStepper
+                          value={attackBonus[row.key] ?? 0}
+                          min={-3}
+                          max={9}
+                          format={(v) => (v > 0 ? `+${v}` : `${v}`)}
+                          emphasis={(attackBonus[row.key] ?? 0) !== 0}
+                          onChange={(v) =>
+                            onAttackBonusChange(
+                              row.key,
+                              v === 0 ? undefined : v,
+                            )
+                          }
+                          label={`${row.profile.name} attacks bonus`}
+                        />
+                      </div>
                       {row.profile.skill > 0 && (
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] uppercase text-[var(--text-muted)]">

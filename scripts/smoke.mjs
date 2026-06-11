@@ -95,6 +95,31 @@ await page
   .waitFor({ timeout: 3000 })
 console.log('defender character works')
 
+// +1 attack on the rifles adds one attack per weapon
+const atkBefore = await stat(page, 'Attacks')
+await page.getByLabel('Increase Bolt Rifle attacks bonus').click()
+await page.waitForTimeout(200)
+const atkAfter = await stat(page, 'Attacks')
+if (Number(atkAfter) !== Number(atkBefore) + 5) {
+  throw new Error(`attack bonus wrong: ${atkBefore} -> ${atkAfter}`)
+}
+await page.getByLabel('Decrease Bolt Rifle attacks bonus').click()
+console.log(`attack bonus works: attacks ${atkBefore} -> ${atkAfter}`)
+
+// granting Lethal Hits raises expected wounds
+const woundsBefore = await stat(page, 'Wounds')
+await page.getByLabel('Edit Bolt Rifle abilities').click()
+await page.getByRole('button', { name: 'Lethal Hits', exact: true }).click()
+await page.waitForTimeout(200)
+const woundsAfter = await stat(page, 'Wounds')
+if (Number(woundsAfter) <= Number(woundsBefore)) {
+  throw new Error(
+    `lethal hits grant had no effect: ${woundsBefore} -> ${woundsAfter}`,
+  )
+}
+console.log(`granted ability works: wounds ${woundsBefore} -> ${woundsAfter}`)
+await page.getByLabel('Edit Bolt Rifle abilities').click()
+
 // worsening a profile's BS stacks with the +1 hit modifier
 const hitsBeforeSkill = await stat(page, 'Hits')
 await page.getByLabel('Increase Bolt Rifle skill').click()
