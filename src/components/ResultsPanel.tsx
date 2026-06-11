@@ -4,13 +4,16 @@ import {
   PanelHeader,
   PanelTitle,
 } from '@/components/ui/panel/panel'
+import type { ModelSlot } from '@/lib/simulation.ts'
 import type { AttackResult } from '@/rules/types.ts'
 import { DistChart } from './DistChart.tsx'
+import { UnitDiagram } from './UnitDiagram.tsx'
 
 interface ResultsPanelProps {
   result?: AttackResult
   defenderName?: string
   attachedNames?: string[]
+  modelLayout?: ModelSlot[]
 }
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2)
@@ -25,6 +28,7 @@ export function ResultsPanel({
   result,
   defenderName,
   attachedNames = [],
+  modelLayout = [],
 }: ResultsPanelProps) {
   return (
     <Panel>
@@ -77,6 +81,9 @@ export function ResultsPanel({
                 </span>
               ))}
             </p>
+            {modelLayout.length > 0 && (
+              <UnitDiagram damage={result.damage} models={modelLayout} />
+            )}
             <div className="grid gap-6 lg:grid-cols-2">
               <DistChart title="Models slain" dist={result.slain} />
               <DistChart title="Damage inflicted" dist={result.damage} />

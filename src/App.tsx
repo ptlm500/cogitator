@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select/select'
 import {
+  defenderModelLayout,
   defenseGroups,
   profileRows,
   runSimulation,
@@ -523,6 +524,20 @@ function App() {
         result={result}
         defenderName={defender?.name}
         attachedNames={defenderChars.map((u) => u.name)}
+        modelLayout={
+          defender
+            ? defenderModelLayout({
+                unit: defender,
+                modelCounts,
+                groupOrder,
+                groupToughness: defToughness,
+                groupSave: defSave,
+                groupWounds: defWounds,
+                attachedUnits: defenderChars,
+                overrides,
+              })
+            : []
+        }
       />
 
       <footer className="mt-auto pt-4 text-xs text-[var(--text-muted)]">

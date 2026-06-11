@@ -111,6 +111,8 @@ await page
   .getByText('Typhus slain', { exact: false })
   .waitFor({ timeout: 3000 })
 console.log('defender character works')
+await page.getByText('Casualty projection', { exact: false }).waitFor()
+console.log('casualty projection renders')
 
 // per-profile tuning lives in the expandable editor
 await page.getByLabel('Modify Bolt Rifle', { exact: true }).click()

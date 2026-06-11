@@ -263,6 +263,22 @@ export function characterUnits(units: Unit[]): Unit[] {
   return units.filter((u) => u.keywords.includes('Character'))
 }
 
+/** One defender model slot in allocation order, for visualisation */
+export interface ModelSlot {
+  wounds: number
+  isCharacter: boolean
+}
+
+/** The defender's models in allocation order (front takes hits first) */
+export function defenderModelLayout(config: DefenderConfig): ModelSlot[] {
+  return toDefenderInput(config).segments.flatMap((s) =>
+    Array.from({ length: s.models }, () => ({
+      wounds: Math.max(1, s.wounds),
+      isCharacter: Boolean(s.isCharacter),
+    })),
+  )
+}
+
 /** Per-weapon-row manual overrides (deltas from the datasheet) */
 export interface RowOverrides {
   counts: Record<string, number>
