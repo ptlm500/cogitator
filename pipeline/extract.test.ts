@@ -838,7 +838,8 @@ describe('synthesized unit sizes', () => {
     const unit = extractUnit(index.resolve('unit-warband')!, index)!
     expect(unit.sizes?.map((x) => x.label)).toEqual(['4 models', '10 models'])
     const [small, big] = unit.sizes!
-    expect(small.models['mdl-reaver']).toEqual({ min: 4, max: 10, default: 4 })
+    // the lower branch can never reach 10 models, so the max clamps to 9
+    expect(small.models['mdl-reaver']).toEqual({ min: 4, max: 9, default: 4 })
     expect(big.models['mdl-reaver']).toEqual({ min: 4, max: 10, default: 10 })
     // the unit-scope weapon cap scales with the branch
     expect(small.weapons).toEqual({ 'wpn-pflamer': 1 })

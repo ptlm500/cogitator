@@ -124,16 +124,21 @@ function combine(op: 'and' | 'or', verdicts: Verdict[]): Verdict {
  * While synthesizing a unit-size branch, the unit's model count is assumed
  * to lie in this range, so count-threshold conditions ("lessThan 20
  * selections of model in unit") become statically evaluable per branch.
+ * Conditions sometimes name the unit entry's id as the scope instead of
+ * the literal 'unit' (Corsair Skyreaver Band).
  */
-let assumedModels: { min: number; max: number } | undefined
+let assumedModels: { min: number; max: number; unitId: string } | undefined
+
+const isUnitModelCount = (cond: BSNode, unitId: string): boolean =>
+  str(cond.field) === 'selections' &&
+  str(cond.childId) === 'model' &&
+  (str(cond.scope) === 'unit' || str(cond.scope) === unitId)
 
 function evalCondition(cond: BSNode, ctx: AncestorContext): Verdict {
   const type = str(cond.type)
   if (
     assumedModels !== undefined &&
-    str(cond.field) === 'selections' &&
-    str(cond.scope) === 'unit' &&
-    str(cond.childId) === 'model'
+    isUnitModelCount(cond, assumedModels.unitId)
   ) {
     const n = Number(cond.value)
     if (Number.isFinite(n)) {
@@ -698,6 +703,8 @@ interface SizeMember {
   min: number
   max: number
   default: number
+  /** innermost capped group this member belongs to */
+  group?: string
 }
 
 /** Fill member defaults up to a group's minimum total, in document order */
@@ -709,6 +716,31 @@ function distributeDefaults(members: SizeMember[], groupMin: number): void {
     if (add > 0) {
       m.default += add
       total += add
+    }
+  }
+}
+
+/**
+ * Cap each member at what its size's standard composition leaves room for:
+ * within its outermost capped group, a member can grow only by displacing
+ * siblings down to their minimums (a 10-strong Kroot unit fields 9 body
+ * models — you can't take 19 rifles at that size). Run after defaults are
+ * final, so a branch filled to 20 models keeps its larger totals.
+ */
+function clampToComposition(members: SizeMember[]): void {
+  const byGroup = new Map<string, SizeMember[]>()
+  for (const m of members) {
+    if (!m.group) continue
+    const list = byGroup.get(m.group)
+    if (list) list.push(m)
+    else byGroup.set(m.group, [m])
+  }
+  for (const list of byGroup.values()) {
+    const total = list.reduce((sum, m) => sum + m.default, 0)
+    if (total === 0) continue
+    const minSum = list.reduce((sum, m) => sum + m.min, 0)
+    for (const m of list) {
+      m.max = Math.min(m.max, Math.max(m.default, total - (minSum - m.min)))
     }
   }
 }
@@ -746,12 +778,22 @@ function sizeMembersOf(
       const max =
         modifiedConstraintValue(child.link, 'max', ctx) ??
         modifiedConstraintValue(n, 'max', childCtx)
-      if (max !== undefined && sub.length >= 2) {
-        pools.push({
-          label: str(n.name),
-          max,
-          modelIds: sub.map((m) => m.id),
-        })
+      if (max !== undefined) {
+        // the group's own cap bounds every member after siblings' minimums;
+        // members belong to their outermost capped group for the later
+        // standard-composition clamp (displacement happens at that level)
+        const subMins = sub.reduce((sum, m) => sum + m.min, 0)
+        for (const m of sub) {
+          m.max = Math.min(m.max, Math.max(m.min, max - (subMins - m.min)))
+          m.group = str(n.id)
+        }
+        if (sub.length >= 2) {
+          pools.push({
+            label: str(n.name),
+            max,
+            modelIds: sub.map((m) => m.id),
+          })
+        }
       }
       if (min > 0) distributeDefaults(sub, min)
       members.push(...sub)
@@ -780,6 +822,7 @@ function extractSizes(
     const pools: SizePool[] = []
     const members = sizeMembersOf(opt.node, index, optCtx, pools)
     if (members.length === 0) continue
+    clampToComposition(members)
     const models: Record<string, SizeCount> = {}
     for (const m of members) {
       const cur = models[m.id]
@@ -815,14 +858,8 @@ function constraintIds(child: ResolvedChild): Set<string> {
 
 /** Normalize a count condition into the smallest count of its upper branch:
  * branches split into [..B-1] and [B..] */
-function conditionBreakpoints(cond: BSNode): number[] {
-  if (
-    str(cond.field) !== 'selections' ||
-    str(cond.scope) !== 'unit' ||
-    str(cond.childId) !== 'model'
-  ) {
-    return []
-  }
+function conditionBreakpoints(cond: BSNode, unitId: string): number[] {
+  if (!isUnitModelCount(cond, unitId)) return []
   const n = Number(cond.value)
   if (!Number.isFinite(n) || n <= 1) return []
   const type = str(cond.type)
@@ -851,6 +888,7 @@ function collectBreakpoints(
   node: BSNode,
   index: BsIndex,
   ctx: AncestorContext,
+  unitId: string,
   out: Set<number>,
   depth = 0,
 ): void {
@@ -865,7 +903,7 @@ function collectBreakpoints(
         }
         if (!ids.has(str(m.field))) continue
         for (const cond of allConditions(m)) {
-          for (const b of conditionBreakpoints(cond)) out.add(b)
+          for (const b of conditionBreakpoints(cond, unitId)) out.add(b)
         }
       }
     }
@@ -874,6 +912,7 @@ function collectBreakpoints(
         child.node,
         index,
         extendContext(ctx, child),
+        unitId,
         out,
         depth + 1,
       )
@@ -923,8 +962,9 @@ function synthesizeSizes(
   acc: UnitAccumulator,
   ctx: AncestorContext,
 ): void {
+  const unitId = str(node.id)
   const breakpoints = new Set<number>()
-  collectBreakpoints(node, index, ctx, breakpoints)
+  collectBreakpoints(node, index, ctx, unitId, breakpoints)
   if (breakpoints.size === 0) return
   const bounds = [...breakpoints].sort((a, b) => a - b).slice(0, 2)
   const branches = [0, ...bounds].map((min, i, all) => ({
@@ -934,7 +974,7 @@ function synthesizeSizes(
 
   const sizes: UnitSize[] = []
   for (const branch of branches) {
-    assumedModels = branch
+    assumedModels = { ...branch, unitId }
     const pools: SizePool[] = []
     const members = sizeMembersOf(node, index, ctx, pools)
     const caps = new Map<string, number>()
@@ -944,6 +984,16 @@ function synthesizeSizes(
     if (branch.min > 0) distributeDefaults(members, branch.min)
     const total = members.reduce((sum, m) => sum + m.default, 0)
     if (total < branch.min || total > branch.max) continue
+    // a branch's model count is bounded above: no member can grow past
+    // what the bound leaves after the others' minimums
+    const minSum = members.reduce((sum, m) => sum + m.min, 0)
+    for (const m of members) {
+      m.max = Math.min(
+        m.max,
+        Math.max(m.default, branch.max - (minSum - m.min)),
+      )
+    }
+    clampToComposition(members)
     const models: Record<string, SizeCount> = {}
     for (const m of members) {
       const cur = models[m.id]
