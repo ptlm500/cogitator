@@ -77,6 +77,10 @@ export interface UnitSize {
   models: Record<string, SizeCount>
   /** Caps on the combined count of a set of model entries */
   pools?: SizePool[]
+  /** Unit-wide caps per weapon id that depend on this size (from
+   * model-count-conditioned constraint modifiers, e.g. "max 1 tanglebomb
+   * launcher while the unit has fewer than 20 models") */
+  weapons?: Record<string, number>
 }
 
 export interface SizeCount {

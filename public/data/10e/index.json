@@ -3,7 +3,7 @@
   "edition": "10e",
   "source": "BSData/wh40k-10e",
   "sha": "3e8d74b3e7c5fc4c69719d9923714a684a8b7403",
-  "generatedAt": "2026-06-11T19:30:08.047Z",
+  "generatedAt": "2026-06-11T20:02:06.155Z",
   "factions": [
     {
       "id": "d265-877b-e03d-30ca",
@@ -185,7 +185,7 @@
       "slug": "imperium-astra-militarum",
       "name": "Imperium - Astra Militarum",
       "file": "imperium-astra-militarum.json",
-      "unitCount": 136
+      "unitCount": 137
     },
     {
       "id": "50c4-3e83-fe54-97c4",
@@ -220,7 +220,7 @@
       "slug": "xenos-genestealer-cults",
       "name": "Xenos - Genestealer Cults",
       "file": "xenos-genestealer-cults.json",
-      "unitCount": 146
+      "unitCount": 147
     },
     {
       "id": "f616-3f08-ee8e-3349",

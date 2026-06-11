@@ -440,6 +440,53 @@ const CAT = `<?xml version="1.0" encoding="UTF-8"?>
         </profile>
       </profiles>
     </selectionEntry>
+
+    <selectionEntry id="unit-warband" name="Test Warband" type="unit" hidden="false">
+      <profiles>
+        <profile id="prof-warband" name="Reaver" typeName="Unit" typeId="pt-unit">
+          <characteristics>
+            <characteristic name="M" typeId="c-m">7"</characteristic>
+            <characteristic name="T" typeId="c-t">3</characteristic>
+            <characteristic name="SV" typeId="c-sv">4+</characteristic>
+            <characteristic name="W" typeId="c-w">1</characteristic>
+            <characteristic name="LD" typeId="c-ld">7+</characteristic>
+            <characteristic name="OC" typeId="c-oc">1</characteristic>
+          </characteristics>
+        </profile>
+      </profiles>
+      <costs>
+        <cost name="pts" typeId="pts-id" value="80"/>
+      </costs>
+      <selectionEntries>
+        <selectionEntry id="mdl-reaver" name="Reaver" type="model" hidden="false">
+          <constraints>
+            <constraint type="min" value="4" field="selections" scope="parent" id="cn-wb1"/>
+            <constraint type="max" value="10" field="selections" scope="parent" id="cn-wb2"/>
+          </constraints>
+          <entryLinks>
+            <entryLink id="lnk-wb-rifle" name="Test Rifle" type="selectionEntry" targetId="wpn-rifle">
+              <constraints>
+                <constraint type="min" value="1" field="selections" scope="parent" id="cn-wb3"/>
+                <constraint type="max" value="1" field="selections" scope="parent" id="cn-wb4"/>
+              </constraints>
+            </entryLink>
+            <entryLink id="lnk-wb-blaster" name="Test Flamer" type="selectionEntry" targetId="wpn-pflamer">
+              <constraints>
+                <constraint type="max" value="1" field="selections" scope="parent" id="cn-wb5"/>
+                <constraint type="max" value="1" field="selections" scope="unit" id="cn-wb6"/>
+              </constraints>
+              <modifiers>
+                <modifier type="increment" value="1" field="cn-wb6">
+                  <conditions>
+                    <condition type="atLeast" value="10" field="selections" scope="unit" childId="model"/>
+                  </conditions>
+                </modifier>
+              </modifiers>
+            </entryLink>
+          </entryLinks>
+        </selectionEntry>
+      </selectionEntries>
+    </selectionEntry>
   </sharedSelectionEntries>
   <sharedSelectionEntryGroups>
     <selectionEntryGroup id="grp-pods" name="Pods" hidden="false">
@@ -539,6 +586,7 @@ describe('extractFaction', () => {
       'Test Hero',
       'Test Platoon',
       'Test Squad',
+      'Test Warband',
     ])
   })
 
@@ -781,6 +829,26 @@ describe('unit-size compositions', () => {
     expect(names).toContain('Platoon Trooper')
     expect(names).toContain('Trooper w/ Test Flamer')
     expect(names.filter((n) => n === 'Platoon Trooper')).toHaveLength(1)
+  })
+})
+
+describe('synthesized unit sizes', () => {
+  it('derives size branches from model-count threshold modifiers', () => {
+    const { index } = setup()
+    const unit = extractUnit(index.resolve('unit-warband')!, index)!
+    expect(unit.sizes?.map((x) => x.label)).toEqual(['4 models', '10 models'])
+    const [small, big] = unit.sizes!
+    expect(small.models['mdl-reaver']).toEqual({ min: 4, max: 10, default: 4 })
+    expect(big.models['mdl-reaver']).toEqual({ min: 4, max: 10, default: 10 })
+    // the unit-scope weapon cap scales with the branch
+    expect(small.weapons).toEqual({ 'wpn-pflamer': 1 })
+    expect(big.weapons).toEqual({ 'wpn-pflamer': 2 })
+  })
+
+  it('does not invent sizes for units without count-conditioned caps', () => {
+    const { index } = setup()
+    const unit = extractUnit(index.resolve('unit-squad')!, index)!
+    expect(unit.sizes).toBeUndefined()
   })
 })
 

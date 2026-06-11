@@ -157,6 +157,7 @@ const sizedUnit: Unit = {
         special: { min: 0, max: 2, default: 0 },
       },
       pools: [{ label: 'Specials', max: 2, modelIds: ['special'] }],
+      weapons: { rifle: 7 },
     },
   ],
 }
@@ -185,7 +186,8 @@ describe('unit sizes', () => {
     const plasma = (rows: typeof small) =>
       rows.find((r) => r.profile.name === 'Plasma - standard')!
     expect(rifle(small)).toMatchObject({ defaultCount: 4, maxCount: 4 })
-    expect(rifle(big)).toMatchObject({ defaultCount: 9, maxCount: 9 })
+    // size-dependent unit-wide weapon caps clamp the row
+    expect(rifle(big)).toMatchObject({ defaultCount: 7, maxCount: 7 })
     expect(plasma(small).maxCount).toBe(1)
     expect(plasma(big).maxCount).toBe(2)
   })

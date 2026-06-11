@@ -112,14 +112,17 @@ export function profileRows(
     const matching = weapon.profiles.filter((p) => profileMatchesMode(p, mode))
     matching.forEach((profile, i) => {
       const def = i === 0 ? (defaults.get(weapon.id) ?? 0) : 0
-      const max = Math.max(maxes.get(weapon.id) ?? 0, def)
+      let max = Math.max(maxes.get(weapon.id) ?? 0, def)
+      // unit-wide weapon caps that depend on the chosen size
+      const cap = size?.weapons?.[weapon.id]
+      if (cap !== undefined) max = Math.min(max, cap)
       // with explicit size options a weapon can be unavailable at this size
       if (size && max === 0) return
       rows.push({
         key: `${weapon.id}:${weapon.profiles.indexOf(profile)}`,
         weaponName: weapon.name,
         profile,
-        defaultCount: def,
+        defaultCount: Math.min(def, max),
         maxCount: Math.max(max, 1),
       })
     })

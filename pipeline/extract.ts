@@ -120,9 +120,41 @@ function combine(op: 'and' | 'or', verdicts: Verdict[]): Verdict {
   return verdicts.includes('unknown') ? 'unknown' : false
 }
 
+/**
+ * While synthesizing a unit-size branch, the unit's model count is assumed
+ * to lie in this range, so count-threshold conditions ("lessThan 20
+ * selections of model in unit") become statically evaluable per branch.
+ */
+let assumedModels: { min: number; max: number } | undefined
+
 function evalCondition(cond: BSNode, ctx: AncestorContext): Verdict {
-  if (str(cond.scope) !== 'ancestor') return 'unknown'
   const type = str(cond.type)
+  if (
+    assumedModels !== undefined &&
+    str(cond.field) === 'selections' &&
+    str(cond.scope) === 'unit' &&
+    str(cond.childId) === 'model'
+  ) {
+    const n = Number(cond.value)
+    if (Number.isFinite(n)) {
+      const { min, max } = assumedModels
+      if (type === 'lessThan')
+        return max < n ? true : min >= n ? false : 'unknown'
+      if (type === 'atMost')
+        return max <= n ? true : min > n ? false : 'unknown'
+      if (type === 'atLeast')
+        return min >= n ? true : max < n ? false : 'unknown'
+      if (type === 'greaterThan')
+        return min > n ? true : max <= n ? false : 'unknown'
+      if (type === 'equalTo')
+        return min === n && max === n
+          ? true
+          : min > n || max < n
+            ? false
+            : 'unknown'
+    }
+  }
+  if (str(cond.scope) !== 'ancestor') return 'unknown'
   if (type === 'instanceOf') return ctx.has(str(cond.childId))
   if (type === 'notInstanceOf') return !ctx.has(str(cond.childId))
   return 'unknown'
@@ -261,12 +293,13 @@ function modifiedConstraintValue(
   source: BSNode | undefined,
   type: 'min' | 'max',
   ctx: AncestorContext,
+  scope = 'parent',
 ): number | undefined {
   if (!source) return undefined
   let id: string | undefined
   let value: number | undefined
   for (const c of constraintsOf(source)) {
-    if (c.type === type && c.field === 'selections' && c.scope === 'parent') {
+    if (c.type === type && c.field === 'selections' && c.scope === scope) {
       const v = Number(c.value)
       if (Number.isFinite(v)) {
         id = str(c.id)
@@ -767,6 +800,178 @@ function extractSizes(
   }
 }
 
+/** Does this element carry a constraint-value modifier (set/increment/
+ * decrement targeting one of its own constraints)? Used to find caps that
+ * change with the unit's model count. */
+function constraintIds(child: ResolvedChild): Set<string> {
+  const ids = new Set<string>()
+  for (const source of [child.node, child.link]) {
+    for (const c of constraintsOf(source)) {
+      if (c.field === 'selections' && typeof c.id === 'string') ids.add(c.id)
+    }
+  }
+  return ids
+}
+
+/** Normalize a count condition into the smallest count of its upper branch:
+ * branches split into [..B-1] and [B..] */
+function conditionBreakpoints(cond: BSNode): number[] {
+  if (
+    str(cond.field) !== 'selections' ||
+    str(cond.scope) !== 'unit' ||
+    str(cond.childId) !== 'model'
+  ) {
+    return []
+  }
+  const n = Number(cond.value)
+  if (!Number.isFinite(n) || n <= 1) return []
+  const type = str(cond.type)
+  if (type === 'lessThan' || type === 'atLeast') return [n]
+  if (type === 'greaterThan' || type === 'atMost') return [n + 1]
+  if (type === 'equalTo') return [n, n + 1]
+  return []
+}
+
+function allConditions(container: BSNode): BSNode[] {
+  return [
+    ...kids(container, 'conditions', 'condition'),
+    ...kids(container, 'conditionGroups', 'conditionGroup').flatMap(
+      allConditions,
+    ),
+  ]
+}
+
+/**
+ * Model-count thresholds at which some cap in the unit changes: collected
+ * from set/increment/decrement modifiers that target a constraint and are
+ * conditioned on the number of models in the unit (the Kroot Carnivores
+ * "max 1 tanglebomb launcher while fewer than 20 models" pattern).
+ */
+function collectBreakpoints(
+  node: BSNode,
+  index: BsIndex,
+  ctx: AncestorContext,
+  out: Set<number>,
+  depth = 0,
+): void {
+  if (depth > 6) return
+  for (const child of resolvedChildren(node, index, ctx)) {
+    const ids = constraintIds(child)
+    for (const source of [child.node, child.link]) {
+      for (const m of modifiersOf(source)) {
+        const type = str(m.type)
+        if (type !== 'set' && type !== 'increment' && type !== 'decrement') {
+          continue
+        }
+        if (!ids.has(str(m.field))) continue
+        for (const cond of allConditions(m)) {
+          for (const b of conditionBreakpoints(cond)) out.add(b)
+        }
+      }
+    }
+    if (child.node.type !== 'unit') {
+      collectBreakpoints(
+        child.node,
+        index,
+        extendContext(ctx, child),
+        out,
+        depth + 1,
+      )
+    }
+  }
+}
+
+/** Unit-scope weapon caps under the current branch assumption, keyed by
+ * weapon entry id (remapped to canonical ids at unit finalization) */
+function collectWeaponCaps(
+  node: BSNode,
+  index: BsIndex,
+  ctx: AncestorContext,
+  caps: Map<string, number>,
+  depth = 0,
+): void {
+  if (depth > 6) return
+  for (const child of resolvedChildren(node, index, ctx)) {
+    const n = child.node
+    const childCtx = extendContext(ctx, child)
+    if (weaponFromEntry(n, index)) {
+      const cap =
+        modifiedConstraintValue(child.link, 'max', ctx, 'unit') ??
+        modifiedConstraintValue(n, 'max', childCtx, 'unit')
+      if (cap !== undefined) {
+        const id = str(n.id)
+        caps.set(id, Math.min(caps.get(id) ?? Infinity, cap))
+      }
+      continue
+    }
+    if (n.type !== 'unit') {
+      collectWeaponCaps(n, index, childCtx, caps, depth + 1)
+    }
+  }
+}
+
+/**
+ * Synthesize unit-size options for units without an explicit composition
+ * group, from model-count thresholds in constraint modifiers (Kroot
+ * Carnivores, Kabalite Warriors, ...): each branch re-evaluates the unit's
+ * member counts, pools, and unit-scope weapon caps under the assumption
+ * that the model count lies in that branch.
+ */
+function synthesizeSizes(
+  node: BSNode,
+  index: BsIndex,
+  acc: UnitAccumulator,
+  ctx: AncestorContext,
+): void {
+  const breakpoints = new Set<number>()
+  collectBreakpoints(node, index, ctx, breakpoints)
+  if (breakpoints.size === 0) return
+  const bounds = [...breakpoints].sort((a, b) => a - b).slice(0, 2)
+  const branches = [0, ...bounds].map((min, i, all) => ({
+    min,
+    max: i + 1 < all.length ? all[i + 1] - 1 : 999,
+  }))
+
+  const sizes: UnitSize[] = []
+  for (const branch of branches) {
+    assumedModels = branch
+    const pools: SizePool[] = []
+    const members = sizeMembersOf(node, index, ctx, pools)
+    const caps = new Map<string, number>()
+    collectWeaponCaps(node, index, ctx, caps)
+    assumedModels = undefined
+    if (members.length === 0) return
+    if (branch.min > 0) distributeDefaults(members, branch.min)
+    const total = members.reduce((sum, m) => sum + m.default, 0)
+    if (total < branch.min || total > branch.max) continue
+    const models: Record<string, SizeCount> = {}
+    for (const m of members) {
+      const cur = models[m.id]
+      models[m.id] = cur
+        ? {
+            min: cur.min + m.min,
+            max: cur.max + m.max,
+            default: cur.default + m.default,
+          }
+        : { min: m.min, max: m.max, default: m.default }
+    }
+    sizes.push({
+      id: `models-${total}`,
+      label: `${total} models`,
+      models,
+      ...(pools.length > 0 ? { pools } : {}),
+      ...(caps.size > 0 ? { weapons: Object.fromEntries(caps) } : {}),
+    })
+  }
+
+  // only worth a selector when some cap actually differs between sizes
+  const shape = (s: UnitSize) =>
+    JSON.stringify([s.models, s.pools ?? [], s.weapons ?? {}])
+  if (sizes.length >= 2 && new Set(sizes.map(shape)).size > 1) {
+    acc.sizes = sizes
+  }
+}
+
 function walkUnitChildren(
   node: BSNode,
   index: BsIndex,
@@ -878,6 +1083,12 @@ export function extractUnit(
 
   collectUnitProfiles(node, index, acc)
   walkUnitChildren(node, index, acc, ctx)
+  // no explicit composition options: size choices may still hide in
+  // model-count-conditioned cap modifiers
+  if (acc.sizes.length < 2 && acc.models.length > 0) {
+    acc.sizes = []
+    synthesizeSizes(node, index, acc, ctx)
+  }
 
   // single-model unit: the unit entry is the model
   if (node.type === 'model' && acc.models.length === 0) {
@@ -913,6 +1124,15 @@ export function extractUnit(
     model.weapons = mergeWeaponRefs(model.weapons as RawRef[], idMap)
   }
   const looseWeapons = mergeWeaponRefs(acc.looseWeapons as RawRef[], idMap)
+  for (const size of acc.sizes) {
+    if (!size.weapons) continue
+    const remapped: Record<string, number> = {}
+    for (const [id, cap] of Object.entries(size.weapons)) {
+      const canonical = idMap.get(id) ?? id
+      remapped[canonical] = Math.min(remapped[canonical] ?? Infinity, cap)
+    }
+    size.weapons = remapped
+  }
 
   const name = str(node.name)
   const abilities = [...acc.abilities.values()]
