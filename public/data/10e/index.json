@@ -2,8 +2,8 @@
   "schema": 1,
   "edition": "10e",
   "source": "BSData/wh40k-10e",
-  "sha": "3e8d74b3e7c5fc4c69719d9923714a684a8b7403",
-  "generatedAt": "2026-06-11T20:42:12.789Z",
+  "sha": "faa9361abd0c621dec311da72f03455998ceb74e",
+  "generatedAt": "2026-06-15T12:44:26.524Z",
   "factions": [
     {
       "id": "d265-877b-e03d-30ca",
